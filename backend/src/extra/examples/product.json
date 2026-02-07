@@ -1,0 +1,143 @@
+[
+    {
+      "title": "iPhone 15 Pro Max 256GB",
+      "description": "Флагманский смартфон Apple с чипом A17 Pro, титановым корпусом и камерой 48МП",
+      "price": 129999.99,
+      "quantity": 5,
+      "category_id": 1
+    },
+    {
+      "title": "Samsung Galaxy S24 Ultra",
+      "description": "Топовый Android смартфон с S Pen, камерой 200МП и чипом Snapdragon 8 Gen 3",
+      "price": 119999.99,
+      "quantity": 8,
+      "category_id": 1
+    },
+    {
+      "title": "Xiaomi 14 Pro",
+      "description": "Мощный китайский флагман с камерой Leica и чипом Snapdragon 8 Gen 3",
+      "price": 89999.99,
+      "quantity": 12,
+      "category_id": 1
+    },
+    {
+      "title": "Google Pixel 8 Pro",
+      "description": "Смартфон с лучшей камерой и чистым Android",
+      "price": 99999.99,
+      "quantity": 3,
+      "category_id": 1
+    },
+    {
+      "title": "MacBook Pro 14 M3 Pro 512GB",
+      "description": "Профессиональный ноутбук Apple с чипом M3 Pro и Liquid Retina XDR дисплеем",
+      "price": 229999.99,
+      "quantity": 2,
+      "category_id": 2
+    },
+    {
+      "title": "Dell XPS 13 9315 i7 16/512GB",
+      "description": "Ультрабук премиум-класса с OLED экраном и процессором Intel i7 12 поколения",
+      "price": 159999.99,
+      "quantity": 4,
+      "category_id": 2
+    },
+    {
+      "title": "ASUS ROG Zephyrus G14 2024",
+      "description": "Игровой ноутбук с RTX 4070, Ryzen 9 и OLED экраном 3K",
+      "price": 189999.99,
+      "quantity": 1,
+      "category_id": 2
+    },
+    {
+      "title": "Lenovo ThinkPad X1 Carbon Gen 11",
+      "description": "Бизнес-ноутбук с лучшей клавиатурой и длительной автономностью",
+      "price": 149999.99,
+      "quantity": 6,
+      "category_id": 2
+    },
+    {
+      "title": "AirPods Pro 2nd Gen USB-C",
+      "description": "Шумоподавление адаптивное, пространственный звук, чип H2",
+      "price": 27999.99,
+      "quantity": 15,
+      "category_id": 3
+    },
+    {
+      "title": "Sony WH-1000XM5",
+      "description": "Лучшие наушники с шумоподавлением и 30 часами работы",
+      "price": 39999.99,
+      "quantity": 10,
+      "category_id": 3
+    },
+    {
+      "title": "JBL Charge 5",
+      "description": "Портативная колонка с мощным звуком и powerbank функцией",
+      "price": 14999.99,
+      "quantity": 20,
+      "category_id": 3
+    },
+    {
+      "title": "Apple Watch Series 9 45mm",
+      "description": "Последние смарт-часы Apple с двойным тапом и чипом S9",
+      "price": 44999.99,
+      "quantity": 7,
+      "category_id": 4
+    },
+    {
+      "title": "Anker PowerCore 26800mAh",
+      "description": "Мощный powerbank с поддержкой быстрой зарядки",
+      "price": 4999.99,
+      "quantity": 25,
+      "category_id": 4
+    },
+    {
+      "title": "Spigen Rugged Armor iPhone 15 Pro",
+      "description": "Защитный чехол с военным классом защиты",
+      "price": 2499.99,
+      "quantity": 30,
+      "category_id": 4
+    },
+    {
+      "title": "Belkin USB-C to Lightning 2m",
+      "description": "Оригинальный кабель MFi для быстрой зарядки iPhone",
+      "price": 2999.99,
+      "quantity": 18,
+      "category_id": 4
+    },
+    {
+      "title": "Dyson V15 Detect",
+      "description": "Пылесос с лазерным детектором пыли и мощностью 240AW",
+      "price": 89999.99,
+      "quantity": 1,
+      "category_id": 5
+    },
+    {
+      "title": "Philips Airfryer XXL HD9650",
+      "description": "Аэрогриль на 7.3л с технологией Rapid Air",
+      "price": 24999.99,
+      "quantity": 8,
+      "category_id": 5
+    },
+    {
+      "title": "Xiaomi Robot Vacuum S12",
+      "description": "Робот-пылесос с лидаром и влажной уборкой",
+      "price": 27999.99,
+      "quantity": 12,
+      "category_id": 5
+    },
+    {
+      "title": "Braun Series 9 Pro",
+      "description": "Премиальная бритва с 5 лезвиями и технологией ProLift",
+      "price": 45999.99,
+      "quantity": 5,
+      "category_id": 5
+    },
+    {
+      "title": "Instant Pot Duo 7-in-1",
+      "description": "Мультиварка с 7 функциями: давление, медленное приготовление, йогурт и др.",
+      "price": 12999.99,
+      "quantity": 14,
+      "category_id": 5
+    }
+  ]
+  
