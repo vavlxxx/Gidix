@@ -1,0 +1,43 @@
+services:
+  backend:
+    container_name: gidix
+    image: gidix
+    build:
+      context: ./backend
+    env_file:
+      - "./backend/.env.docker"
+    ports:
+      - 8888:8888
+    networks:
+      - "gidix_net"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: "poetry run python ./src/gunicorn/run.py"
+    volumes:
+      - ./backend/logs:/gidix/logs
+
+  db:
+    container_name: db
+    image: "postgis/postgis:15-3.4"
+    ports:
+      - 6432:5432
+    volumes:
+      - pg_db_data:/var/lib/postgresql/data
+    networks:
+      - "gidix_net"
+    env_file:
+      - "./backend/.env.postgres"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
+
+volumes:
+  pg_db_data:
+
+networks:
+  gidix_net:
+    driver: bridge
