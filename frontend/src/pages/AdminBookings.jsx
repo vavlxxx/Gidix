@@ -125,6 +125,9 @@ export default function AdminBookings() {
 
       {loading && <p>Загрузка...</p>}
       {error && <p className="error-text">{error}</p>}
+      {!loading && !error && bookings.length === 0 && (
+        <p>Заявок пока нет. Они появятся после отправки через сайт.</p>
+      )}
 
       <div className="table-wrapper">
         <table className="admin-table">

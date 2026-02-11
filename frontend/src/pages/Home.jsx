@@ -19,11 +19,11 @@ export default function Home() {
     <div className="page">
       <header className="hero">
         <div className="hero-content">
-          <p className="hero-tag">Туристическая компания</p>
-          <h1>Откройте для себя незабываемые маршруты</h1>
+          <p className="hero-tag">Gidix • маршруты и экскурсии</p>
+          <h1>Откройте город иначе: с живыми маршрутами и понятной логистикой</h1>
           <p className="hero-sub">
-            Интерактивные экскурсии, продуманная логистика и живая история — выбирайте
-            программы для семей, групп и индивидуальных путешественников.
+            Gidix помогает подобрать экскурсию, увидеть маршрут на карте и оставить заявку без звонков
+            и ожидания.
           </p>
           <div className="hero-actions">
             <a className="button primary" href="#catalog">Смотреть экскурсии</a>
@@ -32,7 +32,7 @@ export default function Home() {
         </div>
         <div className="hero-card">
           <div className="hero-card-inner">
-            <h3>Маршруты с картой</h3>
+            <h3>Gidix: маршруты с картой</h3>
             <p>Смотрите точки интереса, длительность и стоимость в одном окне.</p>
             <div className="hero-stats">
               <div>
@@ -56,6 +56,9 @@ export default function Home() {
 
         {loading && <p>Загрузка каталога...</p>}
         {error && <p className="error-text">{error}</p>}
+        {!loading && !error && routes.length === 0 && (
+          <p>Пока нет опубликованных маршрутов. Зайдите в админку, чтобы добавить первый.</p>
+        )}
 
         <div className="route-grid">
           {routes.map((route) => (
@@ -66,7 +69,7 @@ export default function Home() {
 
       <footer className="site-footer">
         <div>
-          <h4>Туристическая компания</h4>
+          <h4>Gidix</h4>
           <p>Мы создаем маршруты, которые объединяют культуру, природу и комфорт.</p>
         </div>
         <div>

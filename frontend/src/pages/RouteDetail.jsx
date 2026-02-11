@@ -6,6 +6,16 @@ import { apiBase, apiFetch } from "../api";
 import BookingForm from "../components/BookingForm";
 import RouteMap from "../components/RouteMap";
 
+const pointTypeLabels = {
+  museum: "Музей",
+  temple: "Храм",
+  monument: "Памятник",
+  nature: "Природная достопримечательность",
+  park: "Зона отдыха",
+  cafe: "Кафе/ресторан",
+  other: "Другое"
+};
+
 export default function RouteDetail() {
   const { id } = useParams();
   const [route, setRoute] = useState(null);
@@ -92,6 +102,21 @@ export default function RouteDetail() {
           <p>Отмеченные точки интереса и траектория экскурсии.</p>
         </div>
         <RouteMap points={route.points} />
+        {route.points?.length > 0 && (
+          <div className="point-summary">
+            {route.points.map((point, index) => (
+              <div key={point.id || `${point.title}-${index}`} className="point-summary-item">
+                <span className="point-summary-index">{index + 1}</span>
+                <div>
+                  <strong>{point.title}</strong>
+                  <small>
+                    {point.visit_minutes} мин · {pointTypeLabels[point.point_type] || point.point_type}
+                  </small>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="booking-section">

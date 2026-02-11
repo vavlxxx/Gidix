@@ -45,6 +45,9 @@ export default function AdminRoutes() {
 
       {loading && <p>Загрузка...</p>}
       {error && <p className="error-text">{error}</p>}
+      {!loading && !error && routes.length === 0 && (
+        <p>Маршрутов пока нет. Нажмите "Новый маршрут", чтобы создать первый.</p>
+      )}
 
       <div className="admin-list">
         {routes.map((route) => (

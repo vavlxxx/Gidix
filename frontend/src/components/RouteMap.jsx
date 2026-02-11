@@ -1,14 +1,14 @@
 import React from "react";
-import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from "react-leaflet";
+import { CircleMarker, MapContainer, Polyline, TileLayer } from "react-leaflet";
 
 const typeColors = {
-  museum: "#7a5b44",
-  temple: "#8a6a52",
-  monument: "#6c4f3b",
-  nature: "#4d7a5b",
-  park: "#5c8a5a",
-  cafe: "#b37a4c",
-  other: "#6a6a6a"
+  museum: "#8c5b42",
+  temple: "#9a6a4e",
+  monument: "#735046",
+  nature: "#2f6f6d",
+  park: "#4d8a74",
+  cafe: "#c77a4e",
+  other: "#7a6d63"
 };
 
 export default function RouteMap({ points }) {
@@ -19,25 +19,31 @@ export default function RouteMap({ points }) {
   const polyline = points.map((point) => [point.lat, point.lng]);
 
   return (
-    <MapContainer center={center} zoom={13} className="map-frame" scrollWheelZoom={false}>
+    <MapContainer
+      center={center}
+      zoom={13}
+      className="map-frame"
+      scrollWheelZoom
+      dragging
+      doubleClickZoom={false}
+      boxZoom={false}
+      keyboard={false}
+      zoomControl={false}
+      tap={false}
+    >
       <TileLayer
         attribution="&copy; OpenStreetMap"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <Polyline positions={polyline} pathOptions={{ color: "#7a5b44", weight: 4 }} />
+      <Polyline positions={polyline} pathOptions={{ color: "#d07a48", weight: 4 }} />
       {points.map((point) => (
         <CircleMarker
           key={point.id || `${point.lat}-${point.lng}`}
           center={[point.lat, point.lng]}
           radius={8}
           pathOptions={{ color: typeColors[point.point_type] || "#6a6a6a", fillOpacity: 0.9 }}
-        >
-          <Popup>
-            <strong>{point.title}</strong>
-            <p>{point.description}</p>
-            <p>Время на точке: {point.visit_minutes} мин.</p>
-          </Popup>
-        </CircleMarker>
+          interactive={false}
+        />
       ))}
     </MapContainer>
   );

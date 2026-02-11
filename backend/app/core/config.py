@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "Sistema Marshrutov"
+    app_name: str = "Gidix"
     database_url: str = "postgresql+psycopg2://postgres:postgres@db:5432/diplom"
     secret_key: str = "change_me"
     access_token_expire_minutes: int = 60 * 24

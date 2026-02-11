@@ -23,8 +23,8 @@ const defaultPoint = {
   description: "",
   point_type: "other",
   visit_minutes: 30,
-  lat: 0,
-  lng: 0,
+  lat: 55.751244,
+  lng: 37.618423,
   order_index: 0
 };
 
@@ -60,7 +60,6 @@ export default function AdminRouteForm() {
   const [route, setRoute] = useState(emptyRoute);
   const [points, setPoints] = useState([]);
   const [photos, setPhotos] = useState([]);
-  const [isAdding, setIsAdding] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [draftPoint, setDraftPoint] = useState(defaultPoint);
   const [editingIndex, setEditingIndex] = useState(null);
@@ -123,16 +122,16 @@ export default function AdminRouteForm() {
     }));
   };
 
-  const handleAddPoint = (coords) => {
+  const handleAddPoint = () => {
+    const lastPoint = points[points.length - 1];
     setDraftPoint({
       ...defaultPoint,
-      lat: coords.lat,
-      lng: coords.lng,
+      lat: lastPoint ? lastPoint.lat : defaultPoint.lat,
+      lng: lastPoint ? lastPoint.lng : defaultPoint.lng,
       order_index: points.length
     });
     setEditingIndex(null);
     setModalOpen(true);
-    setIsAdding(false);
   };
 
   const handlePointSave = (point) => {
@@ -223,7 +222,7 @@ export default function AdminRouteForm() {
       <div className="admin-header">
         <div>
           <h1>{isEdit ? "Редактирование маршрута" : "Создание маршрута"}</h1>
-          <p>Заполните описание, добавьте точки на карте и фотографии.</p>
+          <p>Заполните описание, добавьте точки с координатами и загрузите фотографии.</p>
         </div>
       </div>
 
@@ -306,13 +305,13 @@ export default function AdminRouteForm() {
             <h3>Точки маршрута</h3>
             <div className="point-toolbar">
               <button
-                className={`button ${isAdding ? "primary" : "ghost"}`}
+                className="button ghost"
                 type="button"
-                onClick={() => setIsAdding((prev) => !prev)}
+                onClick={handleAddPoint}
               >
-                {isAdding ? "Кликните на карте" : "Добавить точку"}
+                Добавить точку
               </button>
-              <p>Точки отображаются в порядке посещения.</p>
+              <p>Точки отображаются в порядке посещения. Координаты вводятся вручную.</p>
             </div>
             <div className="point-list">
               {points.map((point, index) => (
@@ -388,14 +387,9 @@ export default function AdminRouteForm() {
         <div className="route-editor-map">
           <div className="map-toolbar">
             <strong>Интерактивная карта</strong>
-            <span>Щелкните по карте, чтобы добавить точку.</span>
+            <span>Карта доступна только для перемещения и масштаба.</span>
           </div>
-          <MapEditor
-            points={points}
-            isAdding={isAdding}
-            onAddPoint={handleAddPoint}
-            onSelect={handleEditPoint}
-          />
+          <MapEditor points={points} />
         </div>
       </div>
 

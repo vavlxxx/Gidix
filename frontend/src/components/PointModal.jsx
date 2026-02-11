@@ -30,7 +30,9 @@ export default function PointModal({ isOpen, point, onSave, onClose }) {
     event.preventDefault();
     onSave({
       ...form,
-      visit_minutes: Number(form.visit_minutes)
+      visit_minutes: Number(form.visit_minutes),
+      lat: Number(form.lat),
+      lng: Number(form.lng)
     });
   };
 
@@ -73,6 +75,30 @@ export default function PointModal({ isOpen, point, onSave, onClose }) {
               required
             />
           </label>
+          <div className="form-grid">
+            <label>
+              Широта
+              <input
+                type="number"
+                name="lat"
+                step="0.000001"
+                value={form.lat}
+                onChange={handleChange}
+                required
+              />
+            </label>
+            <label>
+              Долгота
+              <input
+                type="number"
+                name="lng"
+                step="0.000001"
+                value={form.lng}
+                onChange={handleChange}
+                required
+              />
+            </label>
+          </div>
           <div className="modal-actions">
             <button className="button ghost" type="button" onClick={onClose}>
               Отмена

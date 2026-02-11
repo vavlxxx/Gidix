@@ -25,7 +25,7 @@ def setup_logging() -> None:
 setup_logging()
 
 app = FastAPI(
-    title="Информационная система управления экскурсионными маршрутами",
+    title="Gidix — управление экскурсионными маршрутами",
     openapi_url="/api/openapi.json",
     docs_url="/api/docs",
 )

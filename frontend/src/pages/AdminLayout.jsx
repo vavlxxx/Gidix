@@ -16,8 +16,8 @@ export default function AdminLayout() {
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <div className="brand-block">
-          <span className="brand-title">Экскурсии</span>
-          <span className="brand-sub">Административная панель</span>
+          <span className="brand-title">Gidix</span>
+          <span className="brand-sub">Панель управления</span>
         </div>
         <nav className="admin-nav">
           <NavLink to="/admin/routes" className={({ isActive }) => (isActive ? "active" : "")}>

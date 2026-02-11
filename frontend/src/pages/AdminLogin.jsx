@@ -32,7 +32,7 @@ export default function AdminLogin() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1>Вход в панель управления</h1>
+        <h1>Gidix — вход в панель управления</h1>
         <p>Используйте учетные данные менеджера или администратора.</p>
         <form onSubmit={handleSubmit}>
           <label>
