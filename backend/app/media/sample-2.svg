@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="g2" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c9b38b" />
+      <stop offset="100%" stop-color="#6f8f72" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#g2)" />
+  <circle cx="860" cy="300" r="180" fill="#f9f3e7" opacity="0.85" />
+  <text x="140" y="240" font-family="Trebuchet MS, sans-serif" font-size="56" fill="#4d3728">Маршрут 1</text>
+  <text x="140" y="320" font-family="Trebuchet MS, sans-serif" font-size="30" fill="#6f523e">Культурные объекты</text>
+</svg>

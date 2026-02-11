@@ -1,0 +1,30 @@
+import React from "react";
+import { Link } from "react-router-dom";
+
+import { apiBase } from "../api";
+
+const formatHours = (value) => `${value.toFixed(1)} ч`;
+
+export default function RouteCard({ route }) {
+  const cover = route.cover_photo ? `${apiBase}${route.cover_photo}` : null;
+
+  return (
+    <Link className="route-card" to={`/route/${route.id}`}>
+      <div
+        className="route-card-cover"
+        style={cover ? { backgroundImage: `url(${cover})` } : undefined}
+      >
+        <div className="route-card-overlay" />
+        <div className="route-card-content">
+          <h3>{route.title}</h3>
+          <p>{route.description.slice(0, 140)}...</p>
+          <div className="route-card-meta">
+            <span>⏱ {formatHours(route.duration_hours)}</span>
+            <span>₽ {route.price_adult.toFixed(0)}</span>
+            <span>👥 {route.max_participants}</span>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}

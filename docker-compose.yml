@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: diplom
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/diplom
+      SECRET_KEY: change_me
+      CORS_ORIGINS: http://localhost:5173
+    volumes:
+      - ./backend/app/media:/app/app/media
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    volumes:
+      - ./frontend:/app
+    environment:
+      VITE_API_BASE: http://localhost:8000
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  db_data:
