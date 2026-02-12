@@ -122,16 +122,20 @@ export default function AdminRouteForm() {
     }));
   };
 
-  const handleAddPoint = () => {
+  const openPointModal = ({ lat, lng } = {}) => {
     const lastPoint = points[points.length - 1];
     setDraftPoint({
       ...defaultPoint,
-      lat: lastPoint ? lastPoint.lat : defaultPoint.lat,
-      lng: lastPoint ? lastPoint.lng : defaultPoint.lng,
+      lat: lat ?? (lastPoint ? lastPoint.lat : defaultPoint.lat),
+      lng: lng ?? (lastPoint ? lastPoint.lng : defaultPoint.lng),
       order_index: points.length
     });
     setEditingIndex(null);
     setModalOpen(true);
+  };
+
+  const handleAddPoint = () => {
+    openPointModal();
   };
 
   const handlePointSave = (point) => {
@@ -311,7 +315,7 @@ export default function AdminRouteForm() {
               >
                 Добавить точку
               </button>
-              <p>Точки отображаются в порядке посещения. Координаты вводятся вручную.</p>
+              <p>Точки отображаются в порядке посещения. Координаты можно ставить кликом на карте.</p>
             </div>
             <div className="point-list">
               {points.map((point, index) => (
@@ -387,9 +391,13 @@ export default function AdminRouteForm() {
         <div className="route-editor-map">
           <div className="map-toolbar">
             <strong>Интерактивная карта</strong>
-            <span>Карта доступна только для перемещения и масштаба.</span>
+            <span>Кликните на карте, чтобы добавить точку. Маркеры можно редактировать кликом.</span>
           </div>
-          <MapEditor points={points} />
+          <MapEditor
+            points={points}
+            onAddPoint={({ lat, lng }) => openPointModal({ lat, lng })}
+            onSelectPoint={handleEditPoint}
+          />
         </div>
       </div>
 

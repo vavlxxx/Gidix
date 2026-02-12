@@ -1,17 +1,4 @@
-version: "3.9"
-
 services:
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: diplom
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-
   backend:
     build: ./backend
     environment:
@@ -25,12 +12,24 @@ services:
     ports:
       - "8000:8000"
 
+  db:
+    image: postgis/postgis:15-3.4
+    environment:
+      POSTGRES_DB: diplom
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
   frontend:
     image: node:20-alpine
     working_dir: /app
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    command: sh -c "if [ ! -x node_modules/.bin/vite ]; then npm ci; fi && npm run dev -- --host 0.0.0.0"
     volumes:
       - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
     environment:
       VITE_API_BASE: http://localhost:8000
     depends_on:
@@ -40,3 +39,4 @@ services:
 
 volumes:
   db_data:
+  frontend_node_modules:

@@ -1,15 +1,26 @@
 import React from "react";
-import { CircleMarker, MapContainer, Polyline, TileLayer } from "react-leaflet";
+import {
+  CircleMarker,
+  LayerGroup,
+  LayersControl,
+  MapContainer,
+  Polyline,
+  TileLayer,
+  ZoomControl
+} from "react-leaflet";
 
 const typeColors = {
-  museum: "#8c5b42",
-  temple: "#9a6a4e",
-  monument: "#735046",
-  nature: "#2f6f6d",
-  park: "#4d8a74",
-  cafe: "#c77a4e",
-  other: "#7a6d63"
+  museum: "#36e7ff",
+  temple: "#92affa",
+  monument: "#536eff",
+  nature: "#1df0f0",
+  park: "#7bd7ff",
+  cafe: "#ffc700",
+  other: "#8aa0c4"
 };
+
+const OSM_ATTR = "&copy; OpenStreetMap";
+const ESRI_ATTR = "Tiles &copy; Esri";
 
 export default function RouteMap({ points }) {
   if (!points || points.length === 0) {
@@ -31,11 +42,31 @@ export default function RouteMap({ points }) {
       zoomControl={false}
       tap={false}
     >
-      <TileLayer
-        attribution="&copy; OpenStreetMap"
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <Polyline positions={polyline} pathOptions={{ color: "#d07a48", weight: 4 }} />
+      <LayersControl position="topright">
+        <LayersControl.BaseLayer checked name="Карта">
+          <TileLayer attribution={OSM_ATTR} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        </LayersControl.BaseLayer>
+        <LayersControl.BaseLayer name="Спутник">
+          <TileLayer
+            attribution={ESRI_ATTR}
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          />
+        </LayersControl.BaseLayer>
+        <LayersControl.BaseLayer name="Гибрид">
+          <LayerGroup>
+            <TileLayer
+              attribution={ESRI_ATTR}
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            />
+            <TileLayer
+              attribution={ESRI_ATTR}
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+            />
+          </LayerGroup>
+        </LayersControl.BaseLayer>
+      </LayersControl>
+      <ZoomControl position="topright" />
+      <Polyline positions={polyline} pathOptions={{ color: "#36e7ff", weight: 4 }} />
       {points.map((point) => (
         <CircleMarker
           key={point.id || `${point.lat}-${point.lng}`}

@@ -4,6 +4,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from app.core.config import settings
 from app.db import SessionLocal, engine
@@ -50,7 +51,16 @@ app.mount("/media", StaticFiles(directory=settings.media_dir), name="media")
 @app.on_event("startup")
 def on_startup() -> None:
     os.makedirs(settings.media_dir, exist_ok=True)
+    with engine.begin() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE points ADD COLUMN IF NOT EXISTS geom geometry(Point, 4326)"))
+        conn.execute(
+            text(
+                "UPDATE points SET geom = ST_SetSRID(ST_MakePoint(lng, lat), 4326) WHERE geom IS NULL"
+            )
+        )
     with SessionLocal() as db:
         seed_if_needed(db)
 

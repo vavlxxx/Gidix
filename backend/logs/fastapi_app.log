@@ -1,0 +1,174 @@
+2026-02-07 15:01:19 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Starting gunicorn 23.0.0
+2026-02-07 15:01:19 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Listening at: http://0.0.0.0:8888 (1)
+2026-02-07 15:01:19 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Using worker: uvicorn.workers.UvicornWorker
+2026-02-07 15:01:19 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Booting worker with pid: 11
+2026-02-07 15:01:19 ::     INFO ::                       uvicorn.error ::               _serve ::     server: 84 :: Started server process [11]
+2026-02-07 15:01:19 ::     INFO ::                       uvicorn.error ::              startup ::         on: 48 :: Waiting for application startup.
+2026-02-07 15:01:19 ::    ERROR ::                       uvicorn.error ::                 send ::         on:121 :: Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "/usr/local/lib/python3.11/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 134, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/usr/local/lib/python3.11/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 134, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/usr/local/lib/python3.11/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/gidix/src/main.py", line 25, in lifespan
+    await helper.check()
+  File "/gidix/src/utils/db_tools.py", line 44, in check
+    async with self.engine.connect() as conn:
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/ext/asyncio/base.py", line 121, in __aenter__
+    return await self.start(is_ctxmanager=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/ext/asyncio/engine.py", line 274, in start
+    await greenlet_spawn(self.sync_engine.connect)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 201, in greenlet_spawn
+    result = context.throw(*sys.exc_info())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3277, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3301, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 447, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 1264, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 711, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+    with util.safe_reraise():
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 388, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 673, in __init__
+    self.__connect()
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 899, in __connect
+    with util.safe_reraise():
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/pool/base.py", line 895, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/create.py", line 661, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 629, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 964, in connect
+    await_only(creator_fn(*arg, **kw)),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asyncpg/connection.py", line 2421, in connect
+    return await connect_utils._connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asyncpg/connect_utils.py", line 1075, in _connect
+    raise last_error or exceptions.TargetServerAttributeNotMatched(
+  File "/usr/local/lib/python3.11/site-packages/asyncpg/connect_utils.py", line 1049, in _connect
+    conn = await _connect_addr(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asyncpg/connect_utils.py", line 886, in _connect_addr
+    return await __connect_addr(params, True, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asyncpg/connect_utils.py", line 931, in __connect_addr
+    tr, pr = await connector
+             ^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asyncpg/connect_utils.py", line 802, in _create_ssl_connection
+    tr, pr = await loop.create_connection(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/asyncio/base_events.py", line 1094, in create_connection
+    raise OSError('Multiple exceptions: {}'.format(
+OSError: Multiple exceptions: [Errno 111] Connect call failed ('::1', 5432, 0, 0), [Errno 111] Connect call failed ('127.0.0.1', 5432)
+
+2026-02-07 15:01:19 ::    ERROR ::                       uvicorn.error ::              startup ::         on: 59 :: Application startup failed. Exiting.
+2026-02-07 15:01:19 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Worker exiting (pid: 11)
+2026-02-07 15:01:19 ::    ERROR ::                      gunicorn.error ::                error ::   glogging:271 :: Worker (pid:11) exited with code 3
+2026-02-07 15:01:19 ::    ERROR ::                      gunicorn.error ::                error ::   glogging:271 :: Shutting down: Master
+2026-02-07 15:01:19 ::    ERROR ::                      gunicorn.error ::                error ::   glogging:271 :: Reason: Worker failed to boot.
+2026-02-07 15:02:06 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Starting gunicorn 23.0.0
+2026-02-07 15:02:06 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Listening at: http://0.0.0.0:8888 (1)
+2026-02-07 15:02:06 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Using worker: uvicorn.workers.UvicornWorker
+2026-02-07 15:02:06 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Booting worker with pid: 11
+2026-02-07 15:02:06 ::     INFO ::                       uvicorn.error ::               _serve ::     server: 84 :: Started server process [11]
+2026-02-07 15:02:06 ::     INFO ::                       uvicorn.error ::              startup ::         on: 48 :: Waiting for application startup.
+2026-02-07 15:02:07 ::     INFO ::                  src.utils.db_tools :: _check_tables_existence ::   db_tools: 57 :: Checking tables...
+2026-02-07 15:02:07 ::    ERROR ::                  src.utils.db_tools :: _check_tables_existence ::   db_tools: 60 :: (-) Table 'categories' is missing
+2026-02-07 15:02:07 ::    ERROR ::                  src.utils.db_tools :: _check_tables_existence ::   db_tools: 60 :: (-) Table 'products' is missing
+2026-02-07 15:02:07 ::     INFO ::                  src.utils.db_tools :: _check_tables_existence ::   db_tools: 65 :: Extra tables: 'pagc_rules', 'state_lookup', 'countysub_lookup', 'bg', 'county_lookup', 'tabblock20', 'cousub', 'state', 'edges', 'zip_lookup', 'street_type_lookup', 'zip_state', 'loader_lookuptables', 'pagc_gaz', 'county', 'direction_lookup', 'place', 'place_lookup', 'addr', 'topology', 'zip_state_loc', 'pagc_lex', 'secondary_unit_lookup', 'addrfeat', 'zip_lookup_base', 'loader_platform', 'tract', 'loader_variables', 'geocode_settings', 'featnames', 'geocode_settings_default', 'spatial_ref_sys', 'zcta5', 'tabblock', 'faces', 'layer', 'zip_lookup_all'
+2026-02-07 15:02:07 ::    ERROR ::                       uvicorn.error ::                 send ::         on:121 :: Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "/usr/local/lib/python3.11/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 134, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/usr/local/lib/python3.11/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 134, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/usr/local/lib/python3.11/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/gidix/src/main.py", line 25, in lifespan
+    await helper.check()
+  File "/gidix/src/utils/db_tools.py", line 47, in check
+    raise MissingTablesError(detail=missing)
+src.utils.exceptions.MissingTablesError: Missing tables: 'categories', 'products'
+
+2026-02-07 15:02:07 ::    ERROR ::                       uvicorn.error ::              startup ::         on: 59 :: Application startup failed. Exiting.
+2026-02-07 15:02:07 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Worker exiting (pid: 11)
+2026-02-07 15:02:07 ::    ERROR ::                      gunicorn.error ::                error ::   glogging:271 :: Worker (pid:11) exited with code 3
+2026-02-07 15:02:07 ::    ERROR ::                      gunicorn.error ::                error ::   glogging:271 :: Shutting down: Master
+2026-02-07 15:02:07 ::    ERROR ::                      gunicorn.error ::                error ::   glogging:271 :: Reason: Worker failed to boot.
+2026-02-07 15:06:22 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Starting gunicorn 23.0.0
+2026-02-07 15:06:22 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Listening at: http://0.0.0.0:8888 (1)
+2026-02-07 15:06:22 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Using worker: uvicorn.workers.UvicornWorker
+2026-02-07 15:06:22 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Booting worker with pid: 11
+2026-02-07 15:06:22 ::     INFO ::                       uvicorn.error ::               _serve ::     server: 84 :: Started server process [11]
+2026-02-07 15:06:22 ::     INFO ::                       uvicorn.error ::              startup ::         on: 48 :: Waiting for application startup.
+2026-02-07 15:06:22 ::     INFO ::                  src.utils.db_tools :: _check_tables_existence ::   db_tools: 57 :: Checking tables...
+2026-02-07 15:06:22 ::     INFO ::                  src.utils.db_tools :: _check_tables_existence ::   db_tools: 62 :: (+) Table 'products' is present
+2026-02-07 15:06:22 ::     INFO ::                  src.utils.db_tools :: _check_tables_existence ::   db_tools: 62 :: (+) Table 'categories' is present
+2026-02-07 15:06:22 ::     INFO ::                  src.utils.db_tools :: _check_tables_existence ::   db_tools: 65 :: Extra tables: 'zip_lookup_base', 'zip_lookup_all', 'edges', 'geocode_settings_default', 'state', 'topology', 'alembic_version', 'zip_lookup', 'place', 'tabblock20', 'zip_state', 'county_lookup', 'pagc_rules', 'featnames', 'loader_platform', 'countysub_lookup', 'zcta5', 'faces', 'loader_variables', 'direction_lookup', 'county', 'spatial_ref_sys', 'pagc_lex', 'loader_lookuptables', 'secondary_unit_lookup', 'bg', 'pagc_gaz', 'place_lookup', 'state_lookup', 'street_type_lookup', 'addrfeat', 'addr', 'geocode_settings', 'cousub', 'tract', 'tabblock', 'layer', 'zip_state_loc'
+2026-02-07 15:06:22 ::     INFO ::                                 src ::             lifespan ::       main: 26 :: All checks passed!
+2026-02-07 15:06:22 ::     INFO ::                       uvicorn.error ::              startup ::         on: 62 :: Application startup complete.
+2026-02-07 15:06:45 ::     INFO ::                      uvicorn.access ::                 send ::   h11_impl:473 :: 172.21.0.1:44838 - "GET / HTTP/1.1" 404
+2026-02-07 15:06:46 ::     INFO ::                      uvicorn.access ::                 send ::   h11_impl:473 :: 172.21.0.1:44838 - "GET / HTTP/1.1" 404
+2026-02-07 15:06:47 ::     INFO ::                      uvicorn.access ::                 send ::   h11_impl:473 :: 172.21.0.1:44838 - "GET /favicon.ico HTTP/1.1" 404
+2026-02-07 15:06:49 ::     INFO ::                      uvicorn.access ::                 send ::   h11_impl:473 :: 172.21.0.1:44848 - "GET /docs HTTP/1.1" 200
+2026-02-07 15:06:50 ::     INFO ::                      uvicorn.access ::                 send ::   h11_impl:473 :: 172.21.0.1:44848 - "GET /openapi.json HTTP/1.1" 200
+2026-02-07 15:07:07 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Handling signal: term
+2026-02-07 15:07:07 ::     INFO ::                       uvicorn.error ::             shutdown ::     server:264 :: Shutting down
+2026-02-07 15:07:07 ::     INFO ::                       uvicorn.error ::             shutdown ::         on: 67 :: Waiting for application shutdown.
+2026-02-07 15:07:07 ::     INFO ::                                 src ::             lifespan ::       main: 31 :: Shutting down...
+2026-02-07 15:07:07 ::     INFO ::                       uvicorn.error ::             shutdown ::         on: 76 :: Application shutdown complete.
+2026-02-07 15:07:07 ::     INFO ::                       uvicorn.error ::               _serve ::     server: 94 :: Finished server process [11]
+2026-02-07 15:07:07 ::    ERROR ::                      gunicorn.error ::                error ::   glogging:271 :: Worker (pid:11) was sent SIGTERM!
+2026-02-07 15:07:07 ::     INFO ::                      gunicorn.error ::                 info ::   glogging:277 :: Shutting down: Master

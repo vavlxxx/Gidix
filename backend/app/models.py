@@ -4,6 +4,7 @@ import enum
 from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.types import Enum as SqlEnum
+from geoalchemy2 import Geometry
 
 Base = declarative_base()
 
@@ -73,6 +74,7 @@ class Point(Base):
     description = Column(Text, nullable=False)
     lat = Column(Float, nullable=False)
     lng = Column(Float, nullable=False)
+    geom = Column(Geometry(geometry_type="POINT", srid=4326, spatial_index=True), nullable=True)
     point_type = Column(SqlEnum(PointType), nullable=False, default=PointType.other)
     visit_minutes = Column(Integer, nullable=False)
     order_index = Column(Integer, nullable=False)

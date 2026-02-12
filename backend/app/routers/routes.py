@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.audit import log_action
@@ -88,6 +89,7 @@ def create_route(
             description=point.description,
             lat=point.lat,
             lng=point.lng,
+            geom=func.ST_SetSRID(func.ST_MakePoint(point.lng, point.lat), 4326),
             point_type=point.point_type,
             visit_minutes=point.visit_minutes,
             order_index=point.order_index,
@@ -142,6 +144,7 @@ def update_route(
                 description=point.description,
                 lat=point.lat,
                 lng=point.lng,
+                geom=func.ST_SetSRID(func.ST_MakePoint(point.lng, point.lat), 4326),
                 point_type=point.point_type,
                 visit_minutes=point.visit_minutes,
                 order_index=point.order_index,
