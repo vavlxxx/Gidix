@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import get_password_hash
-from app.models import Booking, BookingStatus, Point, PointType, Photo, Route, User, UserRole
+from app.models import Booking, BookingStatus, Point, PointType, Photo, Route, RouteDate, User, UserRole
 from app.utils import generate_booking_code
 
 
@@ -130,6 +130,19 @@ def seed_if_needed(db: Session) -> None:
     ]
 
     db.add_all([route1, route2])
+    db.flush()
+
+    today = date.today()
+    route_dates = [
+        RouteDate(route_id=route1.id, date=today + timedelta(days=5)),
+        RouteDate(route_id=route1.id, date=today + timedelta(days=7)),
+        RouteDate(route_id=route1.id, date=today + timedelta(days=9)),
+        RouteDate(route_id=route1.id, date=today + timedelta(days=14)),
+        RouteDate(route_id=route2.id, date=today + timedelta(days=10)),
+        RouteDate(route_id=route2.id, date=today + timedelta(days=12)),
+        RouteDate(route_id=route2.id, date=today + timedelta(days=16)),
+    ]
+    db.add_all(route_dates)
     db.flush()
 
     booking1 = Booking(

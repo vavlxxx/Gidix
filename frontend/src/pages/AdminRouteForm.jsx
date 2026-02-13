@@ -63,6 +63,10 @@ export default function AdminRouteForm() {
   const [modalOpen, setModalOpen] = useState(false);
   const [draftPoint, setDraftPoint] = useState(defaultPoint);
   const [editingIndex, setEditingIndex] = useState(null);
+  const [availableDates, setAvailableDates] = useState([]);
+  const [newDate, setNewDate] = useState("");
+  const [dateStatus, setDateStatus] = useState("idle");
+  const [dateError, setDateError] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
 
@@ -93,6 +97,19 @@ export default function AdminRouteForm() {
         })));
       })
       .catch((err) => setError(err.message));
+  }, [id, isEdit]);
+
+  useEffect(() => {
+    if (!isEdit) {
+      setAvailableDates([]);
+      return;
+    }
+    setDateStatus("loading");
+    setDateError("");
+    apiFetch(`/api/routes/${id}/dates?include_booked=true&include_inactive=true`)
+      .then((data) => setAvailableDates(data))
+      .catch((err) => setDateError(err.message))
+      .finally(() => setDateStatus("idle"));
   }, [id, isEdit]);
 
   const stats = useMemo(() => {
@@ -132,10 +149,6 @@ export default function AdminRouteForm() {
     });
     setEditingIndex(null);
     setModalOpen(true);
-  };
-
-  const handleAddPoint = () => {
-    openPointModal();
   };
 
   const handlePointSave = (point) => {
@@ -221,16 +234,79 @@ export default function AdminRouteForm() {
     }
   };
 
+  const handleAddDate = async () => {
+    if (!newDate || !isEdit) return;
+    setDateStatus("saving");
+    setDateError("");
+    try {
+      const created = await apiFetch(`/api/routes/${id}/dates`, {
+        method: "POST",
+        body: JSON.stringify({ date: newDate })
+      });
+      setAvailableDates((prev) => [...prev, created].sort((a, b) => a.date.localeCompare(b.date)));
+      setNewDate("");
+      setDateStatus("idle");
+    } catch (err) {
+      setDateError(err.message);
+      setDateStatus("error");
+    }
+  };
+
+  const handleToggleDate = async (dateId, nextActive) => {
+    if (!isEdit) return;
+    setDateStatus("saving");
+    setDateError("");
+    try {
+      const updated = await apiFetch(`/api/routes/${id}/dates/${dateId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: nextActive })
+      });
+      setAvailableDates((prev) => prev.map((item) => (item.id === dateId ? updated : item)));
+      setDateStatus("idle");
+    } catch (err) {
+      setDateError(err.message);
+      setDateStatus("error");
+    }
+  };
+
+  const handleDeleteDate = async (dateId) => {
+    if (!isEdit) return;
+    setDateStatus("saving");
+    setDateError("");
+    try {
+      await apiFetch(`/api/routes/${id}/dates/${dateId}`, { method: "DELETE" });
+      setAvailableDates((prev) => prev.filter((item) => item.id !== dateId));
+      setDateStatus("idle");
+    } catch (err) {
+      setDateError(err.message);
+      setDateStatus("error");
+    }
+  };
+
+  const formatDate = (value) => new Date(`${value}T00:00:00`).toLocaleDateString("ru-RU", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    weekday: "short"
+  });
+
   return (
     <div className="admin-page">
       <div className="admin-header">
         <div>
           <h1>{isEdit ? "Редактирование маршрута" : "Создание маршрута"}</h1>
-          <p>Заполните описание, добавьте точки с координатами и загрузите фотографии.</p>
+          <p>Заполните описание, добавьте точки кликом по карте и загрузите фотографии.</p>
         </div>
       </div>
 
       <div className="route-editor">
+        <div className="route-editor-map">
+          <div className="map-toolbar">
+            <strong>Интерактивная карта</strong>
+            <span>Кликните по карте, чтобы добавить точку маршрута.</span>
+          </div>
+          <MapEditor points={points} onAddPoint={openPointModal} />
+        </div>
         <div className="route-editor-form">
           <label>
             Название маршрута
@@ -306,17 +382,76 @@ export default function AdminRouteForm() {
           </section>
 
           <section className="editor-section">
+            <h3>Доступные даты</h3>
+            {!isEdit && (
+              <p>Сначала сохраните маршрут, чтобы добавить даты экскурсий.</p>
+            )}
+            {isEdit && (
+              <div className="date-manager">
+                <div className="date-manager-toolbar">
+                  <input
+                    type="date"
+                    value={newDate}
+                    min={new Date().toISOString().split("T")[0]}
+                    onChange={(event) => setNewDate(event.target.value)}
+                  />
+                  <button
+                    className="button primary"
+                    type="button"
+                    onClick={handleAddDate}
+                    disabled={!newDate || dateStatus === "saving"}
+                  >
+                    Добавить дату
+                  </button>
+                </div>
+                {dateStatus === "loading" && <p>Загрузка дат...</p>}
+                {dateError && <p className="error-text">{dateError}</p>}
+                {availableDates.length === 0 && dateStatus !== "loading" && (
+                  <p>Список пуст. Добавьте даты, чтобы они появились в форме бронирования.</p>
+                )}
+                <div className="date-manager-list">
+                  {availableDates.map((item) => (
+                    <div key={item.id} className="date-manager-item">
+                      <div>
+                        <strong>{formatDate(item.date)}</strong>
+                        <div className="date-manager-meta">
+                          {item.is_booked ? (
+                            <span className="date-tag date-tag--booked">Забронирована</span>
+                          ) : item.is_active ? (
+                            <span className="date-tag date-tag--active">Доступна</span>
+                          ) : (
+                            <span className="date-tag date-tag--inactive">Скрыта</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="date-manager-actions">
+                        <button
+                          className="button ghost"
+                          type="button"
+                          onClick={() => handleToggleDate(item.id, !item.is_active)}
+                          disabled={item.is_booked || dateStatus === "saving"}
+                        >
+                          {item.is_active ? "Скрыть" : "Открыть"}
+                        </button>
+                        <button
+                          className="button ghost"
+                          type="button"
+                          onClick={() => handleDeleteDate(item.id)}
+                          disabled={item.is_booked || dateStatus === "saving"}
+                        >
+                          Удалить
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="editor-section">
             <h3>Точки маршрута</h3>
-            <div className="point-toolbar">
-              <button
-                className="button ghost"
-                type="button"
-                onClick={handleAddPoint}
-              >
-                Добавить точку
-              </button>
-              <p>Точки отображаются в порядке посещения. Координаты вводятся в форме точки.</p>
-            </div>
+            <p>Добавляйте точки кликом по карте и заполните данные в форме.</p>
             <div className="point-list">
               {points.map((point, index) => (
                 <div key={`${point.title}-${index}`} className="point-item">
@@ -386,14 +521,6 @@ export default function AdminRouteForm() {
             )}
           </div>
           {error && <p className="error-text">{error}</p>}
-        </div>
-
-        <div className="route-editor-map">
-          <div className="map-toolbar">
-            <strong>Интерактивная карта</strong>
-            <span>Карта доступна только для перемещения и масштабирования.</span>
-          </div>
-          <MapEditor points={points} />
         </div>
       </div>
 

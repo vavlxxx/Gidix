@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -5,8 +7,8 @@ from sqlalchemy.orm import Session
 from app.audit import log_action
 from app.auth import get_optional_user, require_roles
 from app.db import get_db
-from app.models import Photo, Point, Route
-from app.schemas import RouteCreate, RouteListItem, RouteOut, RouteUpdate
+from app.models import Photo, Point, Route, RouteDate
+from app.schemas import RouteCreate, RouteDateCreate, RouteDateOut, RouteDateUpdate, RouteListItem, RouteOut, RouteUpdate
 
 router = APIRouter(prefix="/api/routes", tags=["routes"])
 
@@ -165,6 +167,105 @@ def update_route(
     db.commit()
     db.refresh(route)
     return RouteOut.model_validate(route)
+
+
+@router.get("/{route_id}/dates", response_model=list[RouteDateOut])
+def list_route_dates(
+    route_id: int,
+    include_booked: bool = False,
+    include_inactive: bool = False,
+    db: Session = Depends(get_db),
+    user=Depends(get_optional_user),
+) -> list[RouteDateOut]:
+    route = db.query(Route).filter(Route.id == route_id).first()
+    if not route or (not route.is_published and not user):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+    query = db.query(RouteDate).filter(RouteDate.route_id == route_id)
+    is_manager = bool(user and user.role.value in {"manager", "admin"})
+    if is_manager:
+        if not include_inactive:
+            query = query.filter(RouteDate.is_active.is_(True))
+        if not include_booked:
+            query = query.filter(RouteDate.is_booked.is_(False))
+    else:
+        query = query.filter(
+            RouteDate.is_active.is_(True),
+            RouteDate.is_booked.is_(False),
+            RouteDate.date >= date.today(),
+        )
+    dates = query.order_by(RouteDate.date.asc()).all()
+    return [RouteDateOut.model_validate(item) for item in dates]
+
+
+@router.post("/{route_id}/dates", response_model=RouteDateOut)
+def create_route_date(
+    route_id: int,
+    payload: RouteDateCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("manager", "admin")),
+) -> RouteDateOut:
+    route = db.query(Route).filter(Route.id == route_id).first()
+    if not route:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+    exists = db.query(RouteDate).filter(RouteDate.route_id == route_id, RouteDate.date == payload.date).first()
+    if exists:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Дата уже добавлена")
+    route_date = RouteDate(route_id=route_id, date=payload.date, is_active=True, is_booked=False)
+    db.add(route_date)
+    log_action(db, user, "route_date_create", {"route_id": route_id, "date": payload.date.isoformat()})
+    db.commit()
+    db.refresh(route_date)
+    return RouteDateOut.model_validate(route_date)
+
+
+@router.patch("/{route_id}/dates/{date_id}", response_model=RouteDateOut)
+def update_route_date(
+    route_id: int,
+    date_id: int,
+    payload: RouteDateUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("manager", "admin")),
+) -> RouteDateOut:
+    route_date = (
+        db.query(RouteDate)
+        .filter(RouteDate.id == date_id, RouteDate.route_id == route_id)
+        .first()
+    )
+    if not route_date:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Дата не найдена")
+    if payload.is_active is not None:
+        route_date.is_active = payload.is_active
+    log_action(
+        db,
+        user,
+        "route_date_update",
+        {"route_id": route_id, "date_id": route_date.id, "is_active": payload.is_active},
+    )
+    db.commit()
+    db.refresh(route_date)
+    return RouteDateOut.model_validate(route_date)
+
+
+@router.delete("/{route_id}/dates/{date_id}")
+def delete_route_date(
+    route_id: int,
+    date_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("manager", "admin")),
+) -> dict:
+    route_date = (
+        db.query(RouteDate)
+        .filter(RouteDate.id == date_id, RouteDate.route_id == route_id)
+        .first()
+    )
+    if not route_date:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Дата не найдена")
+    if route_date.is_booked:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Нельзя удалить забронированную дату")
+    db.delete(route_date)
+    log_action(db, user, "route_date_delete", {"route_id": route_id, "date_id": date_id})
+    db.commit()
+    return {"status": "ok"}
 
 
 @router.delete("/{route_id}")

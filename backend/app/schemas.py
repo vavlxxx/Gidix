@@ -122,6 +122,28 @@ class RouteListItem(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class RouteDateBase(BaseModel):
+    date: date
+
+
+class RouteDateCreate(RouteDateBase):
+    pass
+
+
+class RouteDateUpdate(BaseModel):
+    is_active: Optional[bool] = None
+
+
+class RouteDateOut(RouteDateBase):
+    id: int
+    route_id: int
+    is_active: bool
+    is_booked: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class BookingCreate(BaseModel):
     route_id: int
     client_name: str

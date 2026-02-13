@@ -16,12 +16,17 @@ export default function RouteCard({ route }) {
       >
         <div className="route-card-overlay" />
         <div className="route-card-content">
-          <h3>{route.title}</h3>
-          <p>{route.description.slice(0, 140)}...</p>
-          <div className="route-card-meta">
-            <span>⏱ {formatHours(route.duration_hours)}</span>
-            <span>₽ {route.price_adult.toFixed(0)}</span>
-            <span>👥 {route.max_participants}</span>
+          <div className="route-card-top">
+            <h3>{route.title}</h3>
+            <p>{route.description.slice(0, 140)}...</p>
+          </div>
+          <div className="route-card-footer">
+            <div className="route-card-meta">
+              <span>⏱ {formatHours(route.duration_hours)}</span>
+              <span>₽ {route.price_adult.toFixed(0)}</span>
+              <span>👥 {route.max_participants}</span>
+            </div>
+            <span className="route-card-cta">Подробнее →</span>
           </div>
         </div>
       </div>

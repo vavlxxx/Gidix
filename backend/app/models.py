@@ -1,7 +1,7 @@
 from datetime import datetime
 import enum
 
-from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.types import Enum as SqlEnum
 from geoalchemy2 import Geometry
@@ -62,7 +62,27 @@ class Route(Base):
 
     points = relationship("Point", back_populates="route", cascade="all, delete-orphan", order_by="Point.order_index")
     photos = relationship("Photo", back_populates="route", cascade="all, delete-orphan", order_by="Photo.sort_order")
+    available_dates = relationship(
+        "RouteDate",
+        back_populates="route",
+        cascade="all, delete-orphan",
+        order_by="RouteDate.date",
+    )
     bookings = relationship("Booking", back_populates="route")
+
+
+class RouteDate(Base):
+    __tablename__ = "route_dates"
+    __table_args__ = (UniqueConstraint("route_id", "date", name="uq_route_date"),)
+
+    id = Column(Integer, primary_key=True)
+    route_id = Column(Integer, ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    date = Column(Date, nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_booked = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    route = relationship("Route", back_populates="available_dates")
 
 
 class Point(Base):

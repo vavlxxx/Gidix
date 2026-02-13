@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 
 import { apiFetch } from "../api";
 import RouteCard from "../components/RouteCard";
+import SiteFooter from "../components/SiteFooter";
+import SiteHeader from "../components/SiteHeader";
 
 export default function Home() {
   const [routes, setRoutes] = useState([]);
@@ -16,7 +18,8 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="page">
+    <div className="page page--home">
+      <SiteHeader />
       <header className="hero">
         <div className="hero-content">
           <p className="hero-tag">Gidix • маршруты по Уфе</p>
@@ -29,20 +32,46 @@ export default function Home() {
             <a className="button primary" href="#catalog">Смотреть экскурсии</a>
             <a className="button ghost" href="/admin/login">Вход для менеджеров</a>
           </div>
+          <div className="hero-strip">
+            <div className="hero-strip-item">
+              <span>15+</span>
+              <small>точек показа</small>
+            </div>
+            <div className="hero-strip-item">
+              <span>24/7</span>
+              <small>прием заявок</small>
+            </div>
+            <div className="hero-strip-item">
+              <span>2 ч</span>
+              <small>средний маршрут</small>
+            </div>
+          </div>
         </div>
-        <div className="hero-card">
-          <div className="hero-card-inner">
-            <h3>Gidix: маршруты с картой</h3>
-            <p>Смотрите точки интереса, длительность и стоимость в одном окне.</p>
-            <div className="hero-stats">
-              <div>
-                <span>15+</span>
-                <small>объектов показа</small>
+        <div className="hero-visual">
+          <div className="hero-card">
+            <div className="hero-card-inner">
+              <h3>Gidix: маршруты с картой</h3>
+              <p>Смотрите точки интереса, длительность и стоимость в одном окне.</p>
+              <div className="hero-stats">
+                <div>
+                  <span>4.9</span>
+                  <small>средняя оценка</small>
+                </div>
+                <div>
+                  <span>12 мин</span>
+                  <small>до ответа менеджера</small>
+                </div>
               </div>
-              <div>
-                <span>24/7</span>
-                <small>прием заявок</small>
-              </div>
+            </div>
+          </div>
+          <div className="hero-highlights">
+            <div className="hero-highlight">
+              <strong>Актуальные даты</strong>
+              <span>обновляет менеджер</span>
+            </div>
+            <div className="hero-highlight">
+              <strong>Маршрут</strong>
+              <span>подсвечен на карте</span>
             </div>
           </div>
         </div>
@@ -67,17 +96,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="site-footer">
-        <div>
-          <h4>Gidix</h4>
-          <p>Мы создаем маршруты, которые объединяют культуру, природу и комфорт.</p>
-        </div>
-        <div>
-          <h4>Контакты</h4>
-          <p>+7 (800) 555-12-34</p>
-          <p>info@tour.local</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

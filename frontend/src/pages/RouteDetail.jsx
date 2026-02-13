@@ -5,6 +5,8 @@ import ReactMarkdown from "react-markdown";
 import { apiBase, apiFetch } from "../api";
 import BookingForm from "../components/BookingForm";
 import RouteMap from "../components/RouteMap";
+import SiteFooter from "../components/SiteFooter";
+import SiteHeader from "../components/SiteHeader";
 
 const pointTypeLabels = {
   museum: "Музей",
@@ -31,67 +33,140 @@ export default function RouteDetail() {
       .catch((err) => setError(err.message));
   }, [id]);
 
+  const photos = route?.photos || [];
+
+  useEffect(() => {
+    if (photos.length < 2) {
+      return undefined;
+    }
+    const timer = window.setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % photos.length);
+    }, 6000);
+    return () => window.clearInterval(timer);
+  }, [photos.length]);
+
   if (error) {
     return (
       <div className="page">
+        <SiteHeader />
         <p className="error-text">{error}</p>
         <Link className="button ghost" to="/">Вернуться в каталог</Link>
+        <SiteFooter />
       </div>
     );
   }
 
   if (!route) {
-    return <div className="page">Загрузка маршрута...</div>;
+    return (
+      <div className="page">
+        <SiteHeader />
+        <p>Загрузка маршрута...</p>
+        <SiteFooter />
+      </div>
+    );
   }
 
-  const photos = route.photos || [];
   const current = photos[activeIndex];
   const cover = current ? `${apiBase}${current.file_path}` : null;
+  const durationLabel = `${route.duration_hours.toFixed(1)} ч`;
+  const priceLabel = `${route.price_adult.toFixed(0)} ₽`;
+
+  const handlePrev = () => {
+    if (!photos.length) return;
+    setActiveIndex((prev) => (prev - 1 + photos.length) % photos.length);
+  };
+
+  const handleNext = () => {
+    if (!photos.length) return;
+    setActiveIndex((prev) => (prev + 1) % photos.length);
+  };
 
   return (
     <div className="page">
-      <div className="route-detail-header">
-        <Link className="button ghost" to="/">← К каталогу</Link>
-        <h1>{route.title}</h1>
-      </div>
-
-      <div className="route-detail-grid">
-        <div className="route-gallery">
-          <div
-            className="route-gallery-main"
-            style={cover ? { backgroundImage: `url(${cover})` } : undefined}
-          >
-            {!cover && <div className="route-gallery-placeholder">Фотографии появятся позже</div>}
+      <SiteHeader />
+      <header className="route-hero">
+        <div className="route-hero-content">
+          <Link className="button ghost" to="/">← К каталогу</Link>
+          <p className="route-hero-tag">Экскурсионный маршрут</p>
+          <h1>{route.title}</h1>
+          <div className="route-hero-meta">
+            <div>
+              <span>{durationLabel}</span>
+              <small>длительность</small>
+            </div>
+            <div>
+              <span>{route.max_participants}</span>
+              <small>группа до</small>
+            </div>
+            <div>
+              <span>{route.points?.length || 0}</span>
+              <small>точек</small>
+            </div>
           </div>
+        </div>
+        <div className="route-hero-card">
+          <div className="route-hero-price">
+            <span>от</span>
+            <strong>{priceLabel}</strong>
+            <small>за взрослого</small>
+          </div>
+          <div className="route-hero-note">
+            Выберите дату из доступных, и мы подтвердим бронь после рассмотрения заявки.
+          </div>
+        </div>
+      </header>
+
+      <section className="route-banner">
+        <div
+          className="route-banner-frame"
+          style={cover ? { backgroundImage: `url(${cover})` } : undefined}
+        >
+          {!cover && <div className="route-gallery-placeholder">Фотографии появятся позже</div>}
           {photos.length > 1 && (
-            <div className="route-gallery-thumbs">
-              {photos.map((photo, index) => (
-                <button
-                  key={photo.id}
-                  type="button"
-                  className={index === activeIndex ? "active" : ""}
-                  onClick={() => setActiveIndex(index)}
-                  style={{ backgroundImage: `url(${apiBase}${photo.file_path})` }}
-                />
-              ))}
+            <div className="route-banner-controls">
+              <button className="route-banner-btn" type="button" onClick={handlePrev} aria-label="Назад">
+                ←
+              </button>
+              <span className="route-banner-index">
+                {activeIndex + 1} / {photos.length}
+              </span>
+              <button className="route-banner-btn" type="button" onClick={handleNext} aria-label="Вперёд">
+                →
+              </button>
             </div>
           )}
         </div>
+        {photos.length > 1 && (
+          <div className="route-banner-thumbs">
+            {photos.map((photo, index) => (
+              <button
+                key={photo.id}
+                type="button"
+                className={index === activeIndex ? "active" : ""}
+                onClick={() => setActiveIndex(index)}
+                style={{ backgroundImage: `url(${apiBase}${photo.file_path})` }}
+                aria-label={`Фото ${index + 1}`}
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
+      <div className="route-detail-grid">
         <div className="route-info">
           <div className="route-info-card">
             <h3>Описание программы</h3>
             <ReactMarkdown>{route.description}</ReactMarkdown>
           </div>
-          <div className="route-info-card">
-            <h3>Детали</h3>
-            <ul>
-              <li>Длительность: {route.duration_hours.toFixed(1)} ч</li>
-              <li>Стоимость: {route.price_adult.toFixed(0)} ₽</li>
-              {route.price_child && <li>Детский тариф: {route.price_child.toFixed(0)} ₽</li>}
-              {route.price_group && <li>Групповой тариф: {route.price_group.toFixed(0)} ₽</li>}
-              <li>Макс. группа: {route.max_participants} человек</li>
-            </ul>
+        </div>
+        <div className="route-info-card">
+          <h3>Детали</h3>
+          <div className="route-info-list">
+            <div>Длительность: {route.duration_hours.toFixed(1)} ч</div>
+            <div>Стоимость: {route.price_adult.toFixed(0)} ₽</div>
+            {route.price_child && <div>Детский тариф: {route.price_child.toFixed(0)} ₽</div>}
+            {route.price_group && <div>Групповой тариф: {route.price_group.toFixed(0)} ₽</div>}
+            <div>Макс. группа: {route.max_participants} человек</div>
           </div>
         </div>
       </div>
@@ -116,7 +191,7 @@ export default function RouteDetail() {
                   </div>
                   <p>{point.description}</p>
                   <div className="point-summary-meta">
-                    <span>Время: {point.visit_minutes} мин</span>
+                    <span>{point.visit_minutes} мин</span>
                     <span>Порядок: {index + 1}</span>
                   </div>
                 </div>
@@ -133,6 +208,7 @@ export default function RouteDetail() {
         </div>
         <BookingForm routeId={route.id} maxParticipants={route.max_participants} />
       </section>
+      <SiteFooter />
     </div>
   );
 }

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.audit import log_action
 from app.auth import require_roles
 from app.db import get_db
-from app.models import Booking, BookingStatus, Route
+from app.models import Booking, BookingStatus, Route, RouteDate
 from app.schemas import BookingCreate, BookingDetail, BookingListItem, BookingOut, BookingUpdate
 from app.utils import generate_booking_code
 
@@ -21,6 +21,19 @@ def create_booking(payload: BookingCreate, db: Session = Depends(get_db)) -> Boo
     route = db.query(Route).filter(Route.id == payload.route_id, Route.is_published.is_(True)).first()
     if not route:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+    route_date = (
+        db.query(RouteDate)
+        .filter(
+            RouteDate.route_id == payload.route_id,
+            RouteDate.date == payload.desired_date,
+            RouteDate.is_active.is_(True),
+        )
+        .first()
+    )
+    if not route_date:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Выберите дату из доступных")
+    if route_date.is_booked:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Дата уже забронирована")
     if payload.participants > route.max_participants:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -120,7 +133,52 @@ def update_booking(
     if not booking:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
     if payload.status:
-        booking.status = payload.status
+        previous_status = booking.status
+        next_status = payload.status
+        if next_status == BookingStatus.confirmed and previous_status != BookingStatus.confirmed:
+            route_date = (
+                db.query(RouteDate)
+                .filter(
+                    RouteDate.route_id == booking.route_id,
+                    RouteDate.date == booking.desired_date,
+                    RouteDate.is_active.is_(True),
+                )
+                .first()
+            )
+            if not route_date:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Дата больше недоступна для бронирования",
+                )
+            if route_date.is_booked:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Дата уже забронирована",
+                )
+            route_date.is_booked = True
+        if previous_status == BookingStatus.confirmed and next_status != BookingStatus.confirmed:
+            route_date = (
+                db.query(RouteDate)
+                .filter(
+                    RouteDate.route_id == booking.route_id,
+                    RouteDate.date == booking.desired_date,
+                )
+                .first()
+            )
+            if route_date:
+                other_confirmed = (
+                    db.query(Booking)
+                    .filter(
+                        Booking.route_id == booking.route_id,
+                        Booking.desired_date == booking.desired_date,
+                        Booking.status == BookingStatus.confirmed,
+                        Booking.id != booking.id,
+                    )
+                    .first()
+                )
+                if not other_confirmed:
+                    route_date.is_booked = False
+        booking.status = next_status
         booking.status_updated_at = datetime.utcnow()
     if payload.internal_notes is not None:
         booking.internal_notes = payload.internal_notes
