@@ -88,7 +88,9 @@ export default function AdminRoutes() {
           <h1>Маршруты</h1>
           <p>Создавайте и редактируйте экскурсионные программы.</p>
         </div>
-        <Link className="button primary" to="/admin/routes/new">Новый маршрут</Link>
+        <div className="admin-header-actions">
+          <Link className="button primary" to="/admin/routes/new">Новый маршрут</Link>
+        </div>
       </div>
 
       {loading && <p>Загрузка...</p>}
@@ -97,7 +99,7 @@ export default function AdminRoutes() {
         <p>Маршрутов пока нет. Нажмите "Новый маршрут", чтобы создать первый.</p>
       )}
 
-      <div className="admin-list">
+      <div className="admin-route-grid">
         {routes.map((route) => (
           <div key={route.id} className="admin-route-card">
             <div

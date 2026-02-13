@@ -88,9 +88,11 @@ export default function AdminBookings() {
           <h1>Заявки клиентов</h1>
           <p>Управляйте статусами и отслеживайте обращения.</p>
         </div>
-        <button className="button ghost" type="button" onClick={loadBookings}>
-          Обновить
-        </button>
+        <div className="admin-header-actions">
+          <button className="button ghost" type="button" onClick={loadBookings}>
+            Обновить
+          </button>
+        </div>
       </div>
 
       <div className="filter-bar">

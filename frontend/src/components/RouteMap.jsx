@@ -25,10 +25,10 @@ const pinGlyphs = {
 const createPinIcon = (type) => divIcon({
   className: `map-pin map-pin--${type || "other"}`,
   html: pinGlyphs[type] || pinGlyphs.other,
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-  popupAnchor: [0, -11],
-  tooltipAnchor: [0, -9]
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  popupAnchor: [0, -26],
+  tooltipAnchor: [0, -22]
 });
 
 export default function RouteMap({ points }) {
@@ -98,17 +98,17 @@ export default function RouteMap({ points }) {
     >
       <TileLayer
         attribution="&copy; OpenStreetMap, &copy; CARTO"
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
       />
       {polyline.length > 1 && (
         <>
           <Polyline
             positions={routeLine || polyline}
-            pathOptions={{ color: "#2be7ff", weight: 6, opacity: 0.35, lineCap: "round" }}
+            pathOptions={{ color: "#1b6dff", weight: 6, opacity: 0.2, lineCap: "round" }}
           />
           <Polyline
             positions={routeLine || polyline}
-            pathOptions={{ color: "#7bb4ff", weight: 2, opacity: 0.95, lineCap: "round" }}
+            pathOptions={{ color: "#1b6dff", weight: 2, opacity: 0.9, lineCap: "round" }}
           />
         </>
       )}

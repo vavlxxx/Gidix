@@ -297,6 +297,7 @@ export default function AdminRouteForm() {
           <h1>{isEdit ? "Редактирование маршрута" : "Создание маршрута"}</h1>
           <p>Заполните описание, добавьте точки кликом по карте и загрузите фотографии.</p>
         </div>
+        <div className="admin-header-actions" aria-hidden="true" />
       </div>
 
       <div className="route-editor">

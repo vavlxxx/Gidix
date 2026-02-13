@@ -92,6 +92,7 @@ export default function AdminUsers() {
           <h1>Пользователи</h1>
           <p>Создавайте учетные записи сотрудников и управляйте ролями.</p>
         </div>
+        <div className="admin-header-actions" aria-hidden="true" />
       </div>
 
       <div className="admin-card">

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-import { uploadFile } from "../api";
+import { apiBase, uploadFile } from "../api";
 
 export default function PhotoUploader({ photos, onChange }) {
   const [loading, setLoading] = useState(false);
@@ -78,7 +78,16 @@ export default function PhotoUploader({ photos, onChange }) {
       <div className="photo-list">
         {photos.map((photo, index) => (
           <div key={photo.file_path} className={`photo-item ${photo.is_cover ? "cover" : ""}`}>
-            <span>{photo.is_cover ? "Обложка" : `Фото ${index + 1}`}</span>
+            <div
+              className="photo-preview"
+              style={{
+                backgroundImage: `url(${photo.file_path.startsWith("http") ? photo.file_path : `${apiBase}${photo.file_path}`})`
+              }}
+            />
+            <div className="photo-body">
+              <span className="photo-title">{photo.is_cover ? "Обложка" : `Фото ${index + 1}`}</span>
+              <span className="photo-subtitle">Предпросмотр загруженного изображения</span>
+            </div>
             <div className="photo-actions">
               <button className="button ghost" type="button" onClick={() => move(index, -1)}>
                 ↑
