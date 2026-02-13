@@ -107,11 +107,18 @@ export default function RouteDetail() {
             {route.points.map((point, index) => (
               <div key={point.id || `${point.title}-${index}`} className="point-summary-item">
                 <span className="point-summary-index">{index + 1}</span>
-                <div>
-                  <strong>{point.title}</strong>
-                  <small>
-                    {point.visit_minutes} мин · {pointTypeLabels[point.point_type] || point.point_type}
-                  </small>
+                <div className="point-summary-body">
+                  <div className="point-summary-header">
+                    <strong>{point.title}</strong>
+                    <span className="point-summary-type">
+                      {pointTypeLabels[point.point_type] || point.point_type}
+                    </span>
+                  </div>
+                  <p>{point.description}</p>
+                  <div className="point-summary-meta">
+                    <span>Время: {point.visit_minutes} мин</span>
+                    <span>Порядок: {index + 1}</span>
+                  </div>
                 </div>
               </div>
             ))}

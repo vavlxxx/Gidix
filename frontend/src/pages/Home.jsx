@@ -19,8 +19,8 @@ export default function Home() {
     <div className="page">
       <header className="hero">
         <div className="hero-content">
-          <p className="hero-tag">Gidix • маршруты и экскурсии</p>
-          <h1>Откройте город иначе: с живыми маршрутами и понятной логистикой</h1>
+          <p className="hero-tag">Gidix • маршруты по Уфе</p>
+          <h1>Откройте Уфу иначе: с живыми маршрутами и понятной логистикой</h1>
           <p className="hero-sub">
             Gidix помогает подобрать экскурсию, увидеть маршрут на карте и оставить заявку без звонков
             и ожидания.

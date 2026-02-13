@@ -23,8 +23,8 @@ const defaultPoint = {
   description: "",
   point_type: "other",
   visit_minutes: 30,
-  lat: 55.751244,
-  lng: 37.618423,
+  lat: 54.7388,
+  lng: 55.9721,
   order_index: 0
 };
 
@@ -315,7 +315,7 @@ export default function AdminRouteForm() {
               >
                 Добавить точку
               </button>
-              <p>Точки отображаются в порядке посещения. Координаты можно ставить кликом на карте.</p>
+              <p>Точки отображаются в порядке посещения. Координаты вводятся в форме точки.</p>
             </div>
             <div className="point-list">
               {points.map((point, index) => (
@@ -391,13 +391,9 @@ export default function AdminRouteForm() {
         <div className="route-editor-map">
           <div className="map-toolbar">
             <strong>Интерактивная карта</strong>
-            <span>Кликните на карте, чтобы добавить точку. Маркеры можно редактировать кликом.</span>
+            <span>Карта доступна только для перемещения и масштабирования.</span>
           </div>
-          <MapEditor
-            points={points}
-            onAddPoint={({ lat, lng }) => openPointModal({ lat, lng })}
-            onSelectPoint={handleEditPoint}
-          />
+          <MapEditor points={points} />
         </div>
       </div>
 

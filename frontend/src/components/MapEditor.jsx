@@ -1,41 +1,28 @@
 import React from "react";
-import {
-  CircleMarker,
-  LayerGroup,
-  LayersControl,
-  MapContainer,
-  Polyline,
-  TileLayer,
-  ZoomControl,
-  useMapEvents
-} from "react-leaflet";
+import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, Tooltip } from "react-leaflet";
 
 const typeColors = {
-  museum: "#36e7ff",
-  temple: "#92affa",
+  museum: "#0056b3",
+  temple: "#0f3aaa",
   monument: "#536eff",
-  nature: "#1df0f0",
-  park: "#7bd7ff",
+  nature: "#36e7ff",
+  park: "#007bff",
   cafe: "#ffc700",
-  other: "#8aa0c4"
+  other: "#828283"
 };
 
-const OSM_ATTR = "&copy; OpenStreetMap";
-const ESRI_ATTR = "Tiles &copy; Esri";
+const typeLabels = {
+  museum: "Музей",
+  temple: "Храм",
+  monument: "Памятник",
+  nature: "Природная достопримечательность",
+  park: "Зона отдыха",
+  cafe: "Кафе/ресторан",
+  other: "Другое"
+};
 
-function MapClickHandler({ onAddPoint }) {
-  useMapEvents({
-    click(event) {
-      if (!onAddPoint) return;
-      const { lat, lng } = event.latlng;
-      onAddPoint({ lat, lng });
-    }
-  });
-  return null;
-}
-
-export default function MapEditor({ points, onAddPoint, onSelectPoint }) {
-  const center = points.length ? [points[0].lat, points[0].lng] : [55.751244, 37.618423];
+export default function MapEditor({ points }) {
+  const center = points.length ? [points[0].lat, points[0].lng] : [54.7388, 55.9721];
   const polyline = points.map((point) => [point.lat, point.lng]);
 
   return (
@@ -51,52 +38,35 @@ export default function MapEditor({ points, onAddPoint, onSelectPoint }) {
       zoomControl={false}
       tap={false}
     >
-      <LayersControl position="topright">
-        <LayersControl.BaseLayer checked name="Карта">
-          <TileLayer attribution={OSM_ATTR} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        </LayersControl.BaseLayer>
-        <LayersControl.BaseLayer name="Спутник">
-          <TileLayer
-            attribution={ESRI_ATTR}
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          />
-        </LayersControl.BaseLayer>
-        <LayersControl.BaseLayer name="Гибрид">
-          <LayerGroup>
-            <TileLayer
-              attribution={ESRI_ATTR}
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            />
-            <TileLayer
-              attribution={ESRI_ATTR}
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-            />
-          </LayerGroup>
-        </LayersControl.BaseLayer>
-      </LayersControl>
-      <ZoomControl position="topright" />
-      <MapClickHandler onAddPoint={onAddPoint} />
+      <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       {polyline.length > 1 && (
-        <Polyline positions={polyline} pathOptions={{ color: "#36e7ff", weight: 4 }} />
+        <Polyline positions={polyline} pathOptions={{ color: "#0f3aaa", weight: 3 }} />
       )}
       {points.map((point, index) => (
         <CircleMarker
           key={`${point.lat}-${point.lng}-${index}`}
           center={[point.lat, point.lng]}
           radius={8}
-          pathOptions={{ color: typeColors[point.point_type] || "#6a6a6a", fillOpacity: 0.9 }}
-          interactive={Boolean(onSelectPoint)}
-          eventHandlers={
-            onSelectPoint
-              ? {
-                  click: (event) => {
-                    event?.originalEvent?.stopPropagation();
-                    onSelectPoint(index);
-                  }
-                }
-              : undefined
-          }
-        />
+          pathOptions={{
+            color: typeColors[point.point_type] || "#828283",
+            fillColor: typeColors[point.point_type] || "#828283",
+            fillOpacity: 0.9,
+            weight: 2
+          }}
+        >
+          <Tooltip direction="top" offset={[0, -6]} opacity={0.95}>
+            <strong>{point.title}</strong>
+          </Tooltip>
+          <Popup>
+            <div className="popup-content">
+              <div className="popup-title">{point.title}</div>
+              <div className="popup-meta">
+                {point.visit_minutes} мин · {typeLabels[point.point_type] || point.point_type}
+              </div>
+              <p>{point.description}</p>
+            </div>
+          </Popup>
+        </CircleMarker>
       ))}
     </MapContainer>
   );
