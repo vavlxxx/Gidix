@@ -89,7 +89,7 @@ button {
 .site-header {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 9999;
   background: rgba(245, 247, 255, 0.92);
   border-bottom: 1px solid rgba(12, 27, 51, 0.08);
   backdrop-filter: blur(10px);
@@ -739,6 +739,7 @@ li {
 }
 
 .route-hero-card {
+  height: 100%;
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
   padding: 20px;
@@ -779,150 +780,129 @@ li {
   line-height: 1.5;
 }
 
-.route-detail-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
-  margin-bottom: 24px;
+.section--route-breadcrumbs {
+  padding: 24px 0 12px;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid rgba(12, 27, 51, 0.06);
 }
 
-.route-banner {
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ink-600);
+  align-items: center;
+}
+
+.breadcrumbs a {
+  color: var(--ink-700);
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.breadcrumbs a:hover {
+  color: var(--brand-blue);
+}
+
+.breadcrumbs-separator {
+  color: var(--gray-400);
+}
+
+.breadcrumbs-current {
+  color: var(--ink-900);
+  font-weight: 600;
+}
+
+.section--route-description {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.route-description {
   display: grid;
+  gap: 14px;
+  animation: fadeUp 0.6s ease;
+}
+
+.route-description h2 {
+  margin-bottom: 0;
+}
+
+.route-details {
+  margin-top: 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.route-details h3 {
+  margin-bottom: 0;
+}
+
+.route-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 12px;
 }
 
-.route-banner-frame {
-  height: 380px;
-  background: #e9eef9;
-  background-size: cover;
-  background-position: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink-700);
-  font-weight: 600;
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(12, 27, 51, 0.12);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
-  animation: fadeUp 0.6s ease;
-  transition: transform 0.3s ease;
-}
-
-.route-banner-frame:hover {
-  transform: translateY(-4px);
-}
-
-.route-banner-frame::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(12, 27, 51, 0.05) 0%, rgba(12, 27, 51, 0.35) 100%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.route-banner-frame > * {
-  position: relative;
-  z-index: 1;
-}
-
-.route-banner-controls {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(12, 27, 51, 0.75);
-  padding: 6px 12px;
-  color: #fff;
-  font-size: 13px;
-  border-radius: 999px;
-}
-
-.route-banner-btn {
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  background: transparent;
-  color: #fff;
-  padding: 4px 8px;
-  cursor: pointer;
-  font-size: 14px;
-  border-radius: 999px;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.route-banner-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
-  transform: translateY(-1px);
-}
-
-.route-banner-index {
-  font-variant-numeric: tabular-nums;
-}
-
-.route-banner-thumbs {
+.route-details-item {
+  border: 1px solid rgba(12, 27, 51, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.9);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-  gap: 8px;
+  gap: 4px;
 }
 
-.route-gallery-placeholder {
-  font-size: 12px;
+.route-details-item span {
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--ink-600);
 }
 
-.route-banner-thumbs button {
-  width: 100%;
-  height: 70px;
-  border: 1px solid rgba(12, 27, 51, 0.12);
-  background-size: cover;
-  background-position: center;
-  cursor: pointer;
-  filter: grayscale(40%);
-  opacity: 0.75;
-  border-radius: var(--radius-sm);
-  transition: transform 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
+.route-details-item strong {
+  font-size: 16px;
+  color: var(--ink-900);
 }
 
-.route-banner-thumbs button:hover {
-  transform: translateY(-2px);
-  opacity: 1;
+.section--route-gallery {
+  background: rgba(255, 255, 255, 0.95);
 }
 
-.route-banner-thumbs button.active {
-  filter: none;
-  opacity: 1;
-  border-color: rgba(27, 109, 255, 0.6);
+.route-gallery-grid {
+  column-count: 3;
+  column-gap: 18px;
 }
 
-.route-info-card {
-  background: #fff;
-  padding: 20px;
-  border: 1px solid rgba(12, 27, 51, 0.1);
-  box-shadow: var(--shadow-soft);
+.route-gallery-item {
+  break-inside: avoid;
+  margin: 0 0 18px;
   border-radius: var(--radius-md);
-  display: grid;
-  gap: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(12, 27, 51, 0.08);
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-.route-info-card--wide {
-  grid-column: span 2;
+.route-gallery-item img {
+  width: 100%;
+  display: block;
+  height: auto;
 }
 
-.route-info-list {
-  display: grid;
-  gap: 8px;
-  color: var(--ink-700);
-  font-size: 14px;
+.route-gallery-item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
 }
 
-.route-info-list div {
-  padding-bottom: 8px;
-  border-bottom: 1px dashed rgba(12, 27, 51, 0.12);
+.route-gallery-empty {
+  padding: 20px;
+  border: 1px dashed rgba(12, 27, 51, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--ink-600);
+  text-align: center;
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .route-map-section,
@@ -956,6 +936,14 @@ li {
   background: #dfe7f5;
 }
 
+.route-marker {
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.route-marker--active {
+  filter: drop-shadow(0 6px 10px rgba(27, 109, 255, 0.45));
+}
+
 .map-placeholder {
   height: 260px;
   background: rgba(27, 109, 255, 0.08);
@@ -969,86 +957,135 @@ li {
 .point-summary {
   margin-top: 18px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
   position: relative;
 }
 
-.point-summary-item {
+.point-card {
+  position: relative;
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  padding: 16px 16px 18px;
   border: 1px solid rgba(12, 27, 51, 0.12);
-  background: #fff;
-  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 18px;
   box-shadow: var(--shadow-soft);
+  cursor: grab;
   animation: fadeUp 0.4s ease;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.point-summary-item:hover {
+.point-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background 0.2s ease;
+}
+
+.point-card:hover,
+.point-card:focus-visible {
   transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  border-color: rgba(27, 109, 255, 0.45);
+}
+
+.point-card:focus-visible {
+  outline: 3px solid rgba(27, 109, 255, 0.35);
+  outline-offset: 2px;
+}
+
+.point-card:active {
+  transform: translateY(1px);
+  cursor: grabbing;
+}
+
+.point-card.is-active {
+  border-color: rgba(27, 109, 255, 0.4);
   box-shadow: var(--shadow);
 }
 
-.point-summary-item:nth-child(2) {
-  animation-delay: 0.08s;
+.point-card.is-active::before {
+  background: var(--brand-blue);
 }
 
-.point-summary-item:nth-child(3) {
-  animation-delay: 0.16s;
+.point-card.is-selected {
+  animation: pointSelect 0.35s ease;
 }
 
-.point-summary-item:nth-child(4) {
-  animation-delay: 0.24s;
+.point-card.is-dragging {
+  opacity: 0.6;
+  cursor: grabbing;
 }
 
-.point-summary-index {
-  width: 36px;
-  height: 36px;
+.point-card-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.point-card-index {
+  width: 30px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-weight: 700;
-  z-index: 1;
+  font-size: 13px;
   background: var(--brand-blue);
   border-radius: 50%;
 }
 
-.point-summary-item small {
-  display: block;
-  color: var(--ink-600);
-  margin-top: 4px;
-}
-
-.point-summary-item p {
-  margin-top: 6px;
-  color: var(--ink-700);
-}
-
-.point-summary-body {
+.point-card-title {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
-.point-summary-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: baseline;
+.point-card-title strong {
+  font-size: 15px;
+  color: var(--ink-900);
 }
 
-.point-summary-type {
-  font-size: 12px;
-  color: var(--brand-blue);
+.point-card-title span {
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  color: var(--ink-600);
 }
 
-.point-summary-meta {
-  margin-top: 8px;
-  display: inline-flex;
+.point-card-grip {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  border-radius: 4px;
+  opacity: 0.6;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(12, 27, 51, 0.35),
+      rgba(12, 27, 51, 0.35) 2px,
+      transparent 2px,
+      transparent 5px
+    );
+}
+
+.point-card-description {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-700);
+  line-height: 1.5;
+}
+
+.point-card-footer {
+  display: flex;
+  justify-content: space-between;
   gap: 10px;
   font-size: 12px;
   color: var(--ink-600);
@@ -1062,6 +1099,9 @@ li {
   border-radius: var(--radius-lg);
 }
 
+.booking-form .checkbox {
+  display: flex;
+}
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1538,13 +1578,6 @@ input[type="checkbox"] {
   gap: 24px;
 }
 
-.route-editor-map {
-  border: 1px solid rgba(183, 196, 221, 0.6);
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: var(--radius-md);
-}
-
 .route-editor-map .map-frame {
   cursor: crosshair;
 }
@@ -1714,6 +1747,21 @@ input[type="checkbox"] {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 10px;
   align-items: center;
+}
+
+.admin-card .form-grid {
+  display: flex;
+}
+
+.admin-card .button.primary{
+  width: -webkit-fill-available;
+    display: flex;
+    justify-content: center;
+    height: fit-content;
+    margin-top: auto;
+}
+.filter-bar .button.primary {
+  justify-content: center;
 }
 
 .table-wrapper {
@@ -1946,6 +1994,18 @@ input[type="checkbox"] {
   }
 }
 
+@keyframes pointSelect {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.02);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
 @keyframes floatGlow {
   0%, 100% {
     transform: translateY(0) translateX(0);
@@ -1988,12 +2048,8 @@ input[type="checkbox"] {
     grid-template-columns: 1fr;
   }
 
-  .route-detail-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .route-info-card--wide {
-    grid-column: auto;
+  .route-gallery-grid {
+    column-count: 2;
   }
 
   .route-editor {
@@ -2056,8 +2112,8 @@ input[type="checkbox"] {
     align-items: flex-start;
   }
 
-  .route-banner-frame {
-    height: 240px;
+  .route-gallery-grid {
+    column-count: 1;
   }
 
   .admin-route-media {

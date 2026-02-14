@@ -309,6 +309,7 @@ export default function AdminRouteForm() {
           <MapEditor points={points} onAddPoint={openPointModal} />
         </div>
         <div className="route-editor-form">
+          <div className="form-grid">
           <label>
             Название маршрута
             <input name="title" value={route.title} onChange={handleChange} required />
@@ -322,8 +323,6 @@ export default function AdminRouteForm() {
               <ReactMarkdown>{route.description}</ReactMarkdown>
             </div>
           )}
-
-          <div className="form-grid">
             <label>
               Длительность (ч)
               <input

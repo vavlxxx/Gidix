@@ -100,15 +100,15 @@ export default function AdminUsers() {
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             ФИО
-            <input name="full_name" value={form.full_name} onChange={handleChange} required />
+            <input name="full_name" value={form.full_name} placeholder="ФИО" onChange={handleChange} required />
           </label>
           <label>
             Email
-            <input name="email" type="email" value={form.email} onChange={handleChange} required />
+            <input name="email" type="email" value={form.email} placeholder="Email" onChange={handleChange} required />
           </label>
           <label>
             Временный пароль
-            <input name="password" type="text" value={form.password} onChange={handleChange} required />
+            <input name="password" type="text" value={form.password} placeholder="Пароль" onChange={handleChange} required />
           </label>
           <label>
             Роль

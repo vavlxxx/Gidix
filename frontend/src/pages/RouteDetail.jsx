@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 
@@ -21,35 +21,58 @@ const pointTypeLabels = {
 export default function RouteDetail() {
   const { id } = useParams();
   const [route, setRoute] = useState(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [orderedPoints, setOrderedPoints] = useState([]);
+  const [selectedPointKey, setSelectedPointKey] = useState(null);
+  const [hoveredPointKey, setHoveredPointKey] = useState(null);
+  const [draggedIndex, setDraggedIndex] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     apiFetch(`/api/routes/${id}`)
       .then((data) => {
         setRoute(data);
-        setActiveIndex(0);
       })
       .catch((err) => setError(err.message));
   }, [id]);
 
-  const photos = route?.photos || [];
-
   useEffect(() => {
-    if (!route?.photos?.length) return;
-    const coverIndex = route.photos.findIndex((photo) => photo.is_cover);
-    setActiveIndex(coverIndex >= 0 ? coverIndex : 0);
+    if (!route?.points) {
+      setOrderedPoints([]);
+      return;
+    }
+    setOrderedPoints(route.points);
   }, [route]);
 
+  const photos = route?.photos || [];
+  const points = orderedPoints.length ? orderedPoints : route?.points || [];
+  const pointsWithKey = useMemo(
+    () =>
+      points.map((point, index) => ({
+        ...point,
+        _key: point.id ?? `${point.lat}-${point.lng}-${point.title || point.point_type || index}`
+      })),
+    [points]
+  );
+  const galleryPhotos = useMemo(() => {
+    if (!photos.length) return [];
+    const coverIndex = photos.findIndex((photo) => photo.is_cover);
+    if (coverIndex <= 0) return photos;
+    const next = [...photos];
+    const [coverItem] = next.splice(coverIndex, 1);
+    return [coverItem, ...next];
+  }, [photos]);
+
   useEffect(() => {
-    if (photos.length < 2) {
-      return undefined;
+    if (!pointsWithKey.length) {
+      setSelectedPointKey(null);
+      return;
     }
-    const timer = window.setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % photos.length);
-    }, 6000);
-    return () => window.clearInterval(timer);
-  }, [photos.length]);
+    if (selectedPointKey && !pointsWithKey.some((point) => point._key === selectedPointKey)) {
+      setSelectedPointKey(null);
+    }
+  }, [pointsWithKey, selectedPointKey]);
+
+  const activePointKey = hoveredPointKey || selectedPointKey;
 
   if (error) {
     return (
@@ -81,20 +104,40 @@ export default function RouteDetail() {
   }
 
   const coverPhoto = photos.find((photo) => photo.is_cover) || photos[0];
-  const current = photos[activeIndex] || coverPhoto;
   const cover = coverPhoto ? `${apiBase}${coverPhoto.file_path}` : null;
-  const currentUrl = current ? `${apiBase}${current.file_path}` : null;
   const durationLabel = `${route.duration_hours.toFixed(1)} ч`;
   const priceLabel = `${route.price_adult.toFixed(0)} ₽`;
 
-  const handlePrev = () => {
-    if (!photos.length) return;
-    setActiveIndex((prev) => (prev - 1 + photos.length) % photos.length);
+  const handleDragStart = (index) => (event) => {
+    setDraggedIndex(index);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", index.toString());
   };
 
-  const handleNext = () => {
-    if (!photos.length) return;
-    setActiveIndex((prev) => (prev + 1) % photos.length);
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (index) => (event) => {
+    event.preventDefault();
+    const startIndex = draggedIndex ?? Number(event.dataTransfer.getData("text/plain"));
+    if (Number.isNaN(startIndex) || startIndex === index) {
+      setDraggedIndex(null);
+      return;
+    }
+    setOrderedPoints((prev) => {
+      const base = prev.length ? prev : points;
+      const next = [...base];
+      const [moved] = next.splice(startIndex, 1);
+      next.splice(index, 0, moved);
+      return next;
+    });
+    setDraggedIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
   };
 
   return (
@@ -109,7 +152,6 @@ export default function RouteDetail() {
         <div className="section-inner">
           <header className="route-hero">
             <div className="route-hero-content">
-              <Link className="button ghost" to="/">← К каталогу</Link>
               <p className="route-hero-tag">Экскурсионный маршрут</p>
               <h1>{route.title}</h1>
               <div className="route-hero-meta">
@@ -122,7 +164,7 @@ export default function RouteDetail() {
                   <small>группа до</small>
                 </div>
                 <div>
-                  <span>{route.points?.length || 0}</span>
+                  <span>{pointsWithKey.length}</span>
                   <small>точек</small>
                 </div>
               </div>
@@ -141,64 +183,77 @@ export default function RouteDetail() {
         </div>
       </section>
 
-      <section className="section">
+      <section className="section section--route-breadcrumbs">
         <div className="section-inner">
-          <div className="route-banner">
-            <div
-              className="route-banner-frame"
-              style={currentUrl ? { backgroundImage: `url(${currentUrl})` } : undefined}
-            >
-              {!currentUrl && <div className="route-gallery-placeholder">Фотографии появятся позже</div>}
-              {photos.length > 1 && (
-                <div className="route-banner-controls">
-                  <button className="route-banner-btn" type="button" onClick={handlePrev} aria-label="Назад">
-                    ←
-                  </button>
-                  <span className="route-banner-index">
-                    {activeIndex + 1} / {photos.length}
-                  </span>
-                  <button className="route-banner-btn" type="button" onClick={handleNext} aria-label="Вперёд">
-                    →
-                  </button>
+          <nav className="breadcrumbs" aria-label="breadcrumb">
+            <Link to="/">Главная</Link>
+            <span className="breadcrumbs-separator">/</span>
+            <Link to="/">Каталог</Link>
+            <span className="breadcrumbs-separator">/</span>
+            <span className="breadcrumbs-current">{route.title}</span>
+          </nav>
+        </div>
+      </section>
+
+      <section className="section section--route-description">
+        <div className="section-inner">
+          <div className="route-description">
+            <h2>Описание программы</h2>
+            <ReactMarkdown>{route.description}</ReactMarkdown>
+          </div>
+          <div className="route-details">
+            <h3>Детали</h3>
+            <div className="route-details-grid">
+              <div className="route-details-item">
+                <span>Длительность</span>
+                <strong>{route.duration_hours.toFixed(1)} ч</strong>
+              </div>
+              <div className="route-details-item">
+                <span>Стоимость</span>
+                <strong>{route.price_adult.toFixed(0)} ₽</strong>
+              </div>
+              {route.price_child && (
+                <div className="route-details-item">
+                  <span>Детский тариф</span>
+                  <strong>{route.price_child.toFixed(0)} ₽</strong>
                 </div>
               )}
-            </div>
-            {photos.length > 1 && (
-              <div className="route-banner-thumbs">
-                {photos.map((photo, index) => (
-                  <button
-                    key={photo.id}
-                    type="button"
-                    className={index === activeIndex ? "active" : ""}
-                    onClick={() => setActiveIndex(index)}
-                    style={{ backgroundImage: `url(${apiBase}${photo.file_path})` }}
-                    aria-label={`Фото ${index + 1}`}
-                  />
-                ))}
+              {route.price_group && (
+                <div className="route-details-item">
+                  <span>Групповой тариф</span>
+                  <strong>{route.price_group.toFixed(0)} ₽</strong>
+                </div>
+              )}
+              <div className="route-details-item">
+                <span>Макс. группа</span>
+                <strong>{route.max_participants} человек</strong>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="section">
+      <section className="section section--route-gallery">
         <div className="section-inner">
-          <div className="route-detail-grid">
-            <div className="route-info-card route-info-card--wide">
-              <h3>Описание программы</h3>
-              <ReactMarkdown>{route.description}</ReactMarkdown>
-            </div>
-            <div className="route-info-card">
-              <h3>Детали</h3>
-              <div className="route-info-list">
-                <div>Длительность: {route.duration_hours.toFixed(1)} ч</div>
-                <div>Стоимость: {route.price_adult.toFixed(0)} ₽</div>
-                {route.price_child && <div>Детский тариф: {route.price_child.toFixed(0)} ₽</div>}
-                {route.price_group && <div>Групповой тариф: {route.price_group.toFixed(0)} ₽</div>}
-                <div>Макс. группа: {route.max_participants} человек</div>
-              </div>
-            </div>
+          <div className="section-header">
+            <h2>Галерея проекта</h2>
+            <p>Фотографии маршрута и ключевых точек.</p>
           </div>
+          {galleryPhotos.length > 0 ? (
+            <div className="route-gallery-grid">
+              {galleryPhotos.map((photo, index) => (
+                <figure key={photo.id || `${photo.file_path}-${index}`} className="route-gallery-item">
+                  <img
+                    src={`${apiBase}${photo.file_path}`}
+                    alt={`${route.title} - фото ${index + 1}`}
+                    loading="lazy"
+                  />
+                </figure>
+              ))}
+            </div>
+          ) : (
+            <div className="route-gallery-empty">Фотографии появятся позже</div>
+          )}
         </div>
       </section>
 
@@ -208,27 +263,57 @@ export default function RouteDetail() {
             <h2>Маршрут на карте</h2>
             <p>Отмеченные точки интереса и траектория экскурсии.</p>
           </div>
-          <RouteMap points={route.points} />
-          {route.points?.length > 0 && (
+          <RouteMap points={pointsWithKey} activePointKey={activePointKey} />
+          {pointsWithKey.length > 0 && (
             <div className="point-summary">
-              {route.points.map((point, index) => (
-                <div key={point.id || `${point.title}-${index}`} className="point-summary-item">
-                  <span className="point-summary-index">{index + 1}</span>
-                  <div className="point-summary-body">
-                    <div className="point-summary-header">
-                      <strong>{point.title}</strong>
-                      <span className="point-summary-type">
-                        {pointTypeLabels[point.point_type] || point.point_type}
-                      </span>
+              {pointsWithKey.map((point, index) => {
+                const isActive = activePointKey === point._key;
+                const isSelected = selectedPointKey === point._key;
+                const isDragging = draggedIndex === index;
+
+                return (
+                  <article
+                    key={point._key}
+                    className={`point-card${isActive ? " is-active" : ""}${isSelected ? " is-selected" : ""}${isDragging ? " is-dragging" : ""}`}
+                    draggable
+                    onDragStart={handleDragStart(index)}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop(index)}
+                    onDragEnd={handleDragEnd}
+                    onMouseEnter={() => setHoveredPointKey(point._key)}
+                    onMouseLeave={() => setHoveredPointKey(null)}
+                    onFocus={() => setHoveredPointKey(point._key)}
+                    onBlur={() => setHoveredPointKey(null)}
+                    onClick={() => setSelectedPointKey(point._key)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedPointKey(point._key);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-pressed={isSelected}
+                    aria-grabbed={isDragging}
+                  >
+                    <div className="point-card-header">
+                      <span className="point-card-index">{index + 1}</span>
+                      <div className="point-card-title">
+                        <strong>{point.title}</strong>
+                        <span>{pointTypeLabels[point.point_type] || point.point_type}</span>
+                      </div>
+                      <span className="point-card-grip" aria-hidden="true" />
                     </div>
-                    <p>{point.description}</p>
-                    <div className="point-summary-meta">
+                    {point.description && (
+                      <p className="point-card-description">{point.description}</p>
+                    )}
+                    <div className="point-card-footer">
                       <span>{point.visit_minutes} мин</span>
                       <span>Порядок: {index + 1}</span>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           )}
         </div>
