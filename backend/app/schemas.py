@@ -105,6 +105,8 @@ class RouteOut(RouteBase):
     updated_at: datetime
     points: list[PointOut]
     photos: list[PhotoOut]
+    rating_avg: Optional[float] = None
+    rating_count: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -118,12 +120,15 @@ class RouteListItem(BaseModel):
     max_participants: int
     is_published: bool
     cover_photo: Optional[str] = None
+    rating_avg: Optional[float] = None
+    rating_count: int = 0
 
     model_config = {"from_attributes": True}
 
 
 class RouteDateBase(BaseModel):
     date: date
+    starts_at: Optional[datetime] = None
 
 
 class RouteDateCreate(RouteDateBase):
@@ -132,6 +137,8 @@ class RouteDateCreate(RouteDateBase):
 
 class RouteDateUpdate(BaseModel):
     is_active: Optional[bool] = None
+    date: Optional[date] = None
+    starts_at: Optional[datetime] = None
 
 
 class RouteDateOut(RouteDateBase):
@@ -139,22 +146,6 @@ class RouteDateOut(RouteDateBase):
     route_id: int
     is_active: bool
     is_booked: bool
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class CompletedExcursionBase(BaseModel):
-    starts_at: datetime
-
-
-class CompletedExcursionCreate(CompletedExcursionBase):
-    pass
-
-
-class CompletedExcursionOut(CompletedExcursionBase):
-    id: int
-    route_id: int
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -213,19 +204,24 @@ class BookingDetail(BookingOut):
 
 
 class ReviewCreate(BaseModel):
-    excursion_id: int
+    route_date_id: int
     booking_code: str
     email: EmailStr
     rating: int = Field(ge=1, le=5)
     comment: Optional[str] = None
 
 
+class ReviewUpdate(BaseModel):
+    is_approved: Optional[bool] = None
+
+
 class ReviewOut(BaseModel):
     id: int
-    excursion_id: int
+    route_date_id: int
     author_name: str
     rating: int
     comment: Optional[str]
+    is_approved: bool
     created_at: datetime
     excursion_starts_at: datetime
 

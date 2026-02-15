@@ -36,16 +36,23 @@ export default function BookingForm({ routeId, maxParticipants }) {
 
   useEffect(() => {
     if (!form.desired_date) return;
-    const exists = availableDates.some((item) => item.date === form.desired_date);
+    const exists = availableDates.some((item) => {
+      const dateValue = item.starts_at ? item.starts_at.split("T")[0] : item.date;
+      return dateValue === form.desired_date;
+    });
     if (!exists) {
       setForm((prev) => ({ ...prev, desired_date: "" }));
     }
   }, [availableDates, form.desired_date]);
 
+  const getDateValue = (item) => item.starts_at ? item.starts_at.split("T")[0] : item.date;
+  const getTimeValue = (item) => item.starts_at ? item.starts_at.slice(11, 16) : "";
+
   const groupedDates = useMemo(() => {
     const groups = {};
     availableDates.forEach((item) => {
-      const dateValue = new Date(`${item.date}T00:00:00`);
+      const dateKey = getDateValue(item);
+      const dateValue = new Date(`${dateKey}T00:00:00`);
       const key = dateValue.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
       if (!groups[key]) {
         groups[key] = [];
@@ -55,12 +62,15 @@ export default function BookingForm({ routeId, maxParticipants }) {
     return Object.entries(groups);
   }, [availableDates]);
 
-  const formatSlotDate = (value) => {
-    const dateValue = new Date(`${value}T00:00:00`);
+  const formatSlotDate = (item) => {
+    const dateKey = getDateValue(item);
+    const dateValue = new Date(`${dateKey}T00:00:00`);
+    const timeValue = getTimeValue(item);
     return {
       day: dateValue.toLocaleDateString("ru-RU", { day: "2-digit" }),
       weekday: dateValue.toLocaleDateString("ru-RU", { weekday: "short" }),
-      month: dateValue.toLocaleDateString("ru-RU", { month: "short" })
+      month: dateValue.toLocaleDateString("ru-RU", { month: "short" }),
+      time: timeValue
     };
   };
 
@@ -188,18 +198,22 @@ export default function BookingForm({ routeId, maxParticipants }) {
                 <div className="date-table-month">{month}</div>
                 <div className="date-table-grid">
                   {items.map((item) => {
-                    const parts = formatSlotDate(item.date);
-                    const isActive = form.desired_date === item.date;
+                    const parts = formatSlotDate(item);
+                    const dateValue = getDateValue(item);
+                    const isActive = form.desired_date === dateValue;
                     return (
                       <button
                         key={item.id}
                         type="button"
                         className={`date-slot${isActive ? " active" : ""}`}
                         aria-pressed={isActive}
-                        onClick={() => setForm((prev) => ({ ...prev, desired_date: item.date }))}
+                        onClick={() => setForm((prev) => ({ ...prev, desired_date: dateValue }))}
                       >
                         <span className="date-slot-day">{parts.day}</span>
-                        <span className="date-slot-meta">{parts.month} · {parts.weekday}</span>
+                        <span className="date-slot-meta">
+                          {parts.month} · {parts.weekday}
+                          {parts.time ? ` · ${parts.time}` : ""}
+                        </span>
                       </button>
                     );
                   })}

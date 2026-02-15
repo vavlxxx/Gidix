@@ -168,6 +168,8 @@ export default function RouteDetail() {
   const cover = coverPhoto ? `${apiBase}${coverPhoto.file_path}` : null;
   const durationLabel = `${route.duration_hours.toFixed(1)} ч`;
   const priceLabel = `${route.price_adult.toFixed(0)} ₽`;
+  const ratingValue = route.rating_count ? Number(route.rating_avg).toFixed(1) : "—";
+  const ratingLabel = route.rating_count ? `${route.rating_count} отзывов` : "Нет отзывов";
 
   const handleDragStart = (index) => (event) => {
     setDraggedIndex(index);
@@ -227,6 +229,10 @@ export default function RouteDetail() {
                 <div>
                   <span>{pointsWithKey.length}</span>
                   <small>точек</small>
+                </div>
+                <div className="route-hero-rating">
+                  <span>★ {ratingValue}</span>
+                  <small>{ratingLabel}</small>
                 </div>
               </div>
             </div>

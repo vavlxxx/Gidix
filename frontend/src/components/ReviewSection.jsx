@@ -3,23 +3,21 @@ import React, { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../api";
 import { useToast } from "../context/ToastContext";
 
-const ratingOptions = [5, 4, 3, 2, 1];
-
 export default function ReviewSection({ routeId }) {
   const { notify } = useToast();
   const [reviews, setReviews] = useState([]);
-  const [excursions, setExcursions] = useState([]);
+  const [routeDates, setRouteDates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
-    excursion_id: "",
+    route_date_id: "",
     booking_code: "",
     email: "",
     rating: 5,
     comment: ""
   });
 
-  const hasExcursions = excursions.length > 0;
+  const getDateTimeValue = (item) => item.starts_at || `${item.date}T00:00:00`;
 
   const formatExcursion = (value) =>
     new Date(value).toLocaleString("ru-RU", {
@@ -37,19 +35,67 @@ export default function ReviewSection({ routeId }) {
       year: "numeric"
     });
 
+  const reviewableDates = useMemo(() => {
+    const now = new Date();
+    return routeDates
+      .filter((item) => new Date(getDateTimeValue(item)) <= now)
+      .sort((a, b) => new Date(getDateTimeValue(a)) - new Date(getDateTimeValue(b)));
+  }, [routeDates]);
+
+  const hasExcursions = reviewableDates.length > 0;
+
+  const getDateValue = (item) => item.starts_at ? item.starts_at.split("T")[0] : item.date;
+  const getTimeValue = (item) => item.starts_at ? item.starts_at.slice(11, 16) : "";
+
+  const groupedReviewDates = useMemo(() => {
+    const groups = {};
+    reviewableDates.forEach((item) => {
+      const dateKey = getDateValue(item);
+      const dateValue = new Date(`${dateKey}T00:00:00`);
+      const key = dateValue.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(item);
+    });
+    return Object.entries(groups);
+  }, [reviewableDates]);
+
+  const formatSlotDate = (item) => {
+    const dateKey = getDateValue(item);
+    const dateValue = new Date(`${dateKey}T00:00:00`);
+    const timeValue = getTimeValue(item);
+    return {
+      day: dateValue.toLocaleDateString("ru-RU", { day: "2-digit" }),
+      weekday: dateValue.toLocaleDateString("ru-RU", { weekday: "short" }),
+      month: dateValue.toLocaleDateString("ru-RU", { month: "short" }),
+      time: timeValue
+    };
+  };
+
+  const selectedDate = useMemo(
+    () => reviewableDates.find((item) => String(item.id) === form.route_date_id),
+    [reviewableDates, form.route_date_id]
+  );
+
   useEffect(() => {
     if (!routeId) return;
     setLoading(true);
     Promise.all([
       apiFetch(`/api/routes/${routeId}/reviews`),
-      apiFetch(`/api/routes/${routeId}/completed-excursions`)
+      apiFetch(`/api/routes/${routeId}/dates?include_past=true&include_booked=true&include_inactive=true`)
     ])
-      .then(([reviewsData, excursionsData]) => {
+      .then(([reviewsData, datesData]) => {
         setReviews(reviewsData);
-        setExcursions(excursionsData);
-        if (excursionsData.length > 0) {
+        setRouteDates(datesData);
+        const now = new Date();
+        const reviewable = datesData.filter(
+          (item) => new Date(getDateTimeValue(item)) <= now
+        );
+        if (reviewable.length > 0) {
+          const latest = reviewable[reviewable.length - 1];
           setForm((prev) =>
-            prev.excursion_id ? prev : { ...prev, excursion_id: String(excursionsData[0].id) }
+            prev.route_date_id ? prev : { ...prev, route_date_id: String(latest.id) }
           );
         }
       })
@@ -72,7 +118,7 @@ export default function ReviewSection({ routeId }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!form.excursion_id) {
+    if (!form.route_date_id) {
       notify({
         type: "error",
         title: "Выберите экскурсию",
@@ -83,7 +129,7 @@ export default function ReviewSection({ routeId }) {
     setSubmitting(true);
     try {
       const payload = {
-        excursion_id: Number(form.excursion_id),
+        route_date_id: Number(form.route_date_id),
         booking_code: form.booking_code.trim(),
         email: form.email.trim(),
         rating: Number(form.rating),
@@ -93,7 +139,9 @@ export default function ReviewSection({ routeId }) {
         method: "POST",
         body: JSON.stringify(payload)
       });
-      setReviews((prev) => [created, ...prev]);
+      if (created.is_approved) {
+        setReviews((prev) => [created, ...prev]);
+      }
       setForm((prev) => ({
         ...prev,
         booking_code: "",
@@ -103,7 +151,7 @@ export default function ReviewSection({ routeId }) {
       notify({
         type: "success",
         title: "Спасибо за отзыв",
-        message: "Он появится в списке сразу после отправки."
+        message: "Отзыв отправлен на модерацию и появится после проверки."
       });
     } catch (err) {
       notify({
@@ -125,7 +173,7 @@ export default function ReviewSection({ routeId }) {
 
       {loading && <p>Загрузка отзывов...</p>}
       {!loading && reviews.length === 0 && (
-        <p className="review-empty">Пока нет отзывов. Станьте первым!</p>
+        <p className="review-empty">Пока нет опубликованных отзывов.</p>
       )}
 
       <div className="review-grid">
@@ -136,7 +184,21 @@ export default function ReviewSection({ routeId }) {
               <span className="review-date">{formatCreated(review.created_at)}</span>
             </div>
             <div className="review-meta">
-              <span className="review-rating">{review.rating} / 5</span>
+              <div
+                className="review-stars"
+                role="img"
+                aria-label={`Оценка ${review.rating} из 5`}
+              >
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <span
+                    key={value}
+                    className={`review-star${review.rating >= value ? " is-active" : ""}`}
+                    aria-hidden="true"
+                  >
+                    ★
+                  </span>
+                ))}
+              </div>
               <span className="review-excursion">{formatExcursion(review.excursion_starts_at)}</span>
             </div>
             {review.comment && <p>{review.comment}</p>}
@@ -151,15 +213,46 @@ export default function ReviewSection({ routeId }) {
         )}
         {hasExcursions && (
           <form className="form-grid" onSubmit={handleSubmit}>
-            <label>
+            <label className="full">
               Экскурсия
-              <select name="excursion_id" value={form.excursion_id} onChange={handleChange} required>
-                {excursions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {formatExcursion(item.starts_at)}
-                  </option>
-                ))}
-              </select>
+              <div className="review-date-picker" role="radiogroup" aria-label="Выбор даты экскурсии">
+                {selectedDate && (
+                  <div className="date-picked">
+                    Вы выбрали {formatExcursion(getDateTimeValue(selectedDate))}
+                  </div>
+                )}
+                <div className="date-table">
+                  {groupedReviewDates.map(([month, items]) => (
+                    <div key={month} className="date-table-group">
+                      <div className="date-table-month">{month}</div>
+                      <div className="date-table-grid">
+                        {items.map((item) => {
+                          const parts = formatSlotDate(item);
+                          const isActive = form.route_date_id === String(item.id);
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              className={`date-slot${isActive ? " active" : ""}`}
+                              role="radio"
+                              aria-checked={isActive}
+                              onClick={() =>
+                                setForm((prev) => ({ ...prev, route_date_id: String(item.id) }))
+                              }
+                            >
+                              <span className="date-slot-day">{parts.day}</span>
+                              <span className="date-slot-meta">
+                                {parts.month} · {parts.weekday}
+                                {parts.time ? ` · ${parts.time}` : ""}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </label>
             <label>
               Код брони
@@ -183,14 +276,22 @@ export default function ReviewSection({ routeId }) {
             </label>
             <label>
               Оценка
-              <select name="rating" value={form.rating} onChange={handleChange}>
-                {ratingOptions.map((value) => (
-                  <option key={value} value={value}>
-                    {value} / 5
-                  </option>
+              <div className="rating-stars" role="radiogroup" aria-label="Оценка">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button
+                    key={value}
+                    className={`rating-star${form.rating >= value ? " is-active" : ""}`}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.rating === value}
+                    aria-label={`Оценка ${value}`}
+                    onClick={() => setForm((prev) => ({ ...prev, rating: value }))}
+                  >
+                    ★
+                  </button>
                 ))}
-              </select>
-              {/* <span className="review-rating-note">Текущая оценка: {ratingLabel}</span> */}
+              </div>
+              <span className="review-rating-note">Текущая оценка: {ratingLabel}</span>
             </label>
             <label className="full">
               Комментарий

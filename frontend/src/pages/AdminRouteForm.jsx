@@ -66,12 +66,14 @@ export default function AdminRouteForm() {
   const [draftPoint, setDraftPoint] = useState(defaultPoint);
   const [editingIndex, setEditingIndex] = useState(null);
   const [availableDates, setAvailableDates] = useState([]);
-  const [completedExcursions, setCompletedExcursions] = useState([]);
-  const [newDate, setNewDate] = useState("");
-  const [newExcursionTime, setNewExcursionTime] = useState("");
+  const [newDateTime, setNewDateTime] = useState("");
   const [dateStatus, setDateStatus] = useState("idle");
-  const [excursionStatus, setExcursionStatus] = useState("idle");
   const [status, setStatus] = useState("idle");
+  const [reviews, setReviews] = useState([]);
+  const [reviewStatus, setReviewStatus] = useState("idle");
+  const [reviewActionId, setReviewActionId] = useState(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState(null);
+  const [rescheduleValue, setRescheduleValue] = useState("");
 
   useEffect(() => {
     if (!isEdit) {
@@ -128,21 +130,22 @@ export default function AdminRouteForm() {
 
   useEffect(() => {
     if (!isEdit) {
-      setCompletedExcursions([]);
+      setReviews([]);
       return;
     }
-    setExcursionStatus("loading");
-    apiFetch(`/api/routes/${id}/completed-excursions`)
-      .then((data) => setCompletedExcursions(data))
+    setReviewStatus("loading");
+    apiFetch(`/api/routes/${id}/reviews?include_pending=true`)
+      .then((data) => setReviews(data))
       .catch((err) => {
         notify({
           type: "error",
-          title: "Не удалось загрузить проведенные экскурсии",
+          title: "Не удалось загрузить отзывы",
           message: err.message
         });
       })
-      .finally(() => setExcursionStatus("idle"));
+      .finally(() => setReviewStatus("idle"));
   }, [id, isEdit]);
+
 
   const stats = useMemo(() => {
     if (points.length < 2) {
@@ -277,20 +280,21 @@ export default function AdminRouteForm() {
   };
 
   const handleAddDate = async () => {
-    if (!newDate || !isEdit) return;
+    if (!newDateTime || !isEdit) return;
     setDateStatus("saving");
     try {
+      const dateValue = newDateTime.split("T")[0];
       const created = await apiFetch(`/api/routes/${id}/dates`, {
         method: "POST",
-        body: JSON.stringify({ date: newDate })
+        body: JSON.stringify({ date: dateValue, starts_at: newDateTime })
       });
       setAvailableDates((prev) => [...prev, created].sort((a, b) => a.date.localeCompare(b.date)));
-      setNewDate("");
+      setNewDateTime("");
       setDateStatus("idle");
       notify({
         type: "success",
         title: "Дата добавлена",
-        message: formatDate(created.date)
+        message: formatDateTime(created)
       });
     } catch (err) {
       setDateStatus("error");
@@ -327,6 +331,56 @@ export default function AdminRouteForm() {
     }
   };
 
+  const handleRescheduleDate = (item) => {
+    if (!isEdit) return;
+    const currentValue = item.starts_at
+      ? item.starts_at.slice(0, 16)
+      : `${item.date}T00:00`;
+    setRescheduleTarget(item);
+    setRescheduleValue(currentValue);
+  };
+
+  const handleRescheduleSubmit = async (event) => {
+    event.preventDefault();
+    if (!rescheduleTarget || !rescheduleValue) {
+      notify({
+        type: "error",
+        title: "Укажите дату и время",
+        message: "Нужно выбрать новую дату и время для переноса."
+      });
+      return;
+    }
+    const normalized = rescheduleValue.includes("T")
+      ? rescheduleValue
+      : rescheduleValue.replace(" ", "T");
+    const dateValue = normalized.split("T")[0];
+    setDateStatus("saving");
+    try {
+      const updated = await apiFetch(`/api/routes/${id}/dates/${rescheduleTarget.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ date: dateValue, starts_at: normalized })
+      });
+      setAvailableDates((prev) =>
+        prev.map((itemDate) => (itemDate.id === rescheduleTarget.id ? updated : itemDate))
+      );
+      setDateStatus("idle");
+      setRescheduleTarget(null);
+      setRescheduleValue("");
+      notify({
+        type: "success",
+        title: "Экскурсия перенесена",
+        message: formatDateTime(updated)
+      });
+    } catch (err) {
+      setDateStatus("error");
+      notify({
+        type: "error",
+        title: "Ошибка переноса",
+        message: err.message
+      });
+    }
+  };
+
   const handleDeleteDate = async (dateId) => {
     if (!isEdit) return;
     setDateStatus("saving");
@@ -348,52 +402,54 @@ export default function AdminRouteForm() {
     }
   };
 
-  const handleAddExcursion = async () => {
-    if (!newExcursionTime || !isEdit) return;
-    setExcursionStatus("saving");
+  const handleApproveReview = async (reviewId) => {
+    if (!isEdit) return;
+    setReviewActionId(reviewId);
     try {
-      const created = await apiFetch(`/api/routes/${id}/completed-excursions`, {
-        method: "POST",
-        body: JSON.stringify({ starts_at: newExcursionTime })
+      const updated = await apiFetch(`/api/routes/${id}/reviews/${reviewId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_approved: true })
       });
-      setCompletedExcursions((prev) =>
-        [created, ...prev].sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at))
-      );
-      setNewExcursionTime("");
-      setExcursionStatus("idle");
+      setReviews((prev) => prev.map((item) => (item.id === reviewId ? updated : item)));
       notify({
         type: "success",
-        title: "Экскурсия добавлена",
-        message: formatDateTime(created.starts_at)
+        title: "Отзыв опубликован"
       });
     } catch (err) {
-      setExcursionStatus("error");
       notify({
         type: "error",
-        title: "Ошибка добавления экскурсии",
+        title: "Не удалось обновить отзыв",
         message: err.message
       });
+    } finally {
+      setReviewActionId(null);
     }
   };
 
-  const formatDate = (value) => new Date(`${value}T00:00:00`).toLocaleDateString("ru-RU", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-    weekday: "short"
-  });
+  const closeRescheduleModal = () => {
+    setRescheduleTarget(null);
+    setRescheduleValue("");
+  };
 
-  const formatDateTime = (value) => new Date(value).toLocaleString("ru-RU", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+  const formatDateTime = (item) => {
+    const base = item?.starts_at || (item?.date ? `${item.date}T00:00:00` : item);
+    return new Date(base).toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
 
-  const maxExcursionTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
+  const formatReviewDate = (value) =>
+    new Date(value).toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
 
   return (
     <div className="admin-page">
@@ -495,18 +551,17 @@ export default function AdminRouteForm() {
               <div className="date-manager">
                 <div className="date-manager-toolbar">
                   <input
-                    type="date"
-                    value={newDate}
-                    min={new Date().toISOString().split("T")[0]}
-                    onChange={(event) => setNewDate(event.target.value)}
+                    type="datetime-local"
+                    value={newDateTime}
+                    onChange={(event) => setNewDateTime(event.target.value)}
                   />
                   <button
                     className="button primary"
                     type="button"
                     onClick={handleAddDate}
-                    disabled={!newDate || dateStatus === "saving"}
+                    disabled={!newDateTime || dateStatus === "saving"}
                   >
-                    Добавить дату
+                    Добавить дату и время
                   </button>
                 </div>
                 {dateStatus === "loading" && <p>Загрузка дат...</p>}
@@ -517,7 +572,7 @@ export default function AdminRouteForm() {
                   {availableDates.map((item) => (
                     <div key={item.id} className="date-manager-item">
                       <div>
-                        <strong>{formatDate(item.date)}</strong>
+                        <strong>{formatDateTime(item)}</strong>
                         <div className="date-manager-meta">
                           {item.is_booked ? (
                             <span className="date-tag date-tag--booked">Забронирована</span>
@@ -529,6 +584,14 @@ export default function AdminRouteForm() {
                         </div>
                       </div>
                       <div className="date-manager-actions">
+                        <button
+                          className="button ghost"
+                          type="button"
+                          onClick={() => handleRescheduleDate(item)}
+                          disabled={dateStatus === "saving"}
+                        >
+                          Перенести
+                        </button>
                         <button
                           className="button ghost"
                           type="button"
@@ -554,43 +617,62 @@ export default function AdminRouteForm() {
           </section>
 
           <section className="editor-section">
-            <h3>Проведенные экскурсии</h3>
-            <p>Добавьте фактическую дату и время экскурсии, чтобы участники могли оставить отзыв.</p>
+            <h3>Отзывы</h3>
             {!isEdit && (
-              <p>Сначала сохраните маршрут, чтобы фиксировать проведенные экскурсии.</p>
+              <p>Сначала сохраните маршрут, чтобы управлять отзывами.</p>
             )}
             {isEdit && (
-              <div className="date-manager">
-                <div className="date-manager-toolbar">
-                  <input
-                    type="datetime-local"
-                    value={newExcursionTime}
-                    max={maxExcursionTime}
-                    onChange={(event) => setNewExcursionTime(event.target.value)}
-                  />
-                  <button
-                    className="button primary"
-                    type="button"
-                    onClick={handleAddExcursion}
-                    disabled={!newExcursionTime || excursionStatus === "saving"}
-                  >
-                    Добавить экскурсию
-                  </button>
-                </div>
-                {excursionStatus === "loading" && <p>Загрузка проведенных экскурсий...</p>}
-                {completedExcursions.length === 0 && excursionStatus !== "loading" && (
-                  <p>Пока нет проведенных экскурсий.</p>
+              <div className="review-admin">
+                {reviewStatus === "loading" && <p>Загрузка отзывов...</p>}
+                {reviewStatus !== "loading" && reviews.length === 0 && (
+                  <p>Пока нет отзывов.</p>
                 )}
-                <div className="date-manager-list">
-                  {completedExcursions.map((item) => (
-                    <div key={item.id} className="date-manager-item">
-                      <div>
-                        <strong>{formatDateTime(item.starts_at)}</strong>
-                        <div className="date-manager-meta">
-                          <span className="date-tag date-tag--active">Проведена</span>
+                <div className="review-admin-list">
+                  {reviews.map((review) => (
+                    <article
+                      key={review.id}
+                      className={`review-admin-card${review.is_approved ? "" : " is-pending"}`}
+                    >
+                      <div className="review-admin-header">
+                        <div>
+                          <strong>{review.author_name}</strong>
+                          <div className="review-admin-meta">
+                            <span>{formatReviewDate(review.created_at)}</span>
+                            <span>Экскурсия: {formatDateTime(review.excursion_starts_at)}</span>
+                          </div>
                         </div>
+                        <span
+                          className={`review-admin-status${
+                            review.is_approved ? " is-approved" : " is-pending"
+                          }`}
+                        >
+                          {review.is_approved ? "Опубликован" : "На модерации"}
+                        </span>
                       </div>
-                    </div>
+                      <div className="review-stars" aria-hidden="true">
+                        {[1, 2, 3, 4, 5].map((value) => (
+                          <span
+                            key={value}
+                            className={`review-star${review.rating >= value ? " is-active" : ""}`}
+                          >
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                      {review.comment && <p className="review-admin-comment">{review.comment}</p>}
+                      {!review.is_approved && (
+                        <div className="review-admin-actions">
+                          <button
+                            className="button primary"
+                            type="button"
+                            onClick={() => handleApproveReview(review.id)}
+                            disabled={reviewActionId === review.id}
+                          >
+                            {reviewActionId === review.id ? "Публикация..." : "Опубликовать"}
+                          </button>
+                        </div>
+                      )}
+                    </article>
                   ))}
                 </div>
               </div>
@@ -677,6 +759,37 @@ export default function AdminRouteForm() {
         onSave={handlePointSave}
         onClose={() => setModalOpen(false)}
       />
+      {rescheduleTarget && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Перенос экскурсии</h3>
+              <button className="icon-button" type="button" onClick={closeRescheduleModal}>
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleRescheduleSubmit}>
+              <label>
+                Новая дата и время
+                <input
+                  type="datetime-local"
+                  value={rescheduleValue}
+                  onChange={(event) => setRescheduleValue(event.target.value)}
+                  required
+                />
+              </label>
+              <div className="modal-actions">
+                <button className="button ghost" type="button" onClick={closeRescheduleModal}>
+                  Отмена
+                </button>
+                <button className="button primary" type="submit" disabled={dateStatus === "saving"}>
+                  {dateStatus === "saving" ? "Сохранение..." : "Перенести"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

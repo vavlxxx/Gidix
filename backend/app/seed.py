@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -134,13 +134,13 @@ def seed_if_needed(db: Session) -> None:
 
     today = date.today()
     route_dates = [
-        RouteDate(route_id=route1.id, date=today + timedelta(days=5)),
-        RouteDate(route_id=route1.id, date=today + timedelta(days=7)),
-        RouteDate(route_id=route1.id, date=today + timedelta(days=9)),
-        RouteDate(route_id=route1.id, date=today + timedelta(days=14)),
-        RouteDate(route_id=route2.id, date=today + timedelta(days=10)),
-        RouteDate(route_id=route2.id, date=today + timedelta(days=12)),
-        RouteDate(route_id=route2.id, date=today + timedelta(days=16)),
+        RouteDate(route_id=route1.id, date=today + timedelta(days=5), starts_at=datetime.combine(today + timedelta(days=5), datetime.min.time())),
+        RouteDate(route_id=route1.id, date=today + timedelta(days=7), starts_at=datetime.combine(today + timedelta(days=7), datetime.min.time())),
+        RouteDate(route_id=route1.id, date=today + timedelta(days=9), starts_at=datetime.combine(today + timedelta(days=9), datetime.min.time())),
+        RouteDate(route_id=route1.id, date=today + timedelta(days=14), starts_at=datetime.combine(today + timedelta(days=14), datetime.min.time())),
+        RouteDate(route_id=route2.id, date=today + timedelta(days=10), starts_at=datetime.combine(today + timedelta(days=10), datetime.min.time())),
+        RouteDate(route_id=route2.id, date=today + timedelta(days=12), starts_at=datetime.combine(today + timedelta(days=12), datetime.min.time())),
+        RouteDate(route_id=route2.id, date=today + timedelta(days=16), starts_at=datetime.combine(today + timedelta(days=16), datetime.min.time())),
     ]
     db.add_all(route_dates)
     db.flush()

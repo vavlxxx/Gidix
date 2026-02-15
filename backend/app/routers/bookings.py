@@ -1,7 +1,7 @@
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.audit import log_action
@@ -12,6 +12,26 @@ from app.schemas import BookingCreate, BookingDetail, BookingListItem, BookingOu
 from app.utils import generate_booking_code
 
 router = APIRouter(prefix="/api/bookings", tags=["bookings"])
+
+BOOKED_STATUSES = {BookingStatus.confirmed, BookingStatus.completed}
+
+
+def _starts_at_value(route_date: RouteDate) -> datetime:
+    return route_date.starts_at or datetime.combine(route_date.date, time(0, 0))
+
+
+def _booked_participants(db: Session, route_id: int, desired_date: date, exclude_booking_id: int | None = None) -> int:
+    query = (
+        db.query(func.coalesce(func.sum(Booking.participants), 0))
+        .filter(
+            Booking.route_id == route_id,
+            Booking.desired_date == desired_date,
+            Booking.status.in_(BOOKED_STATUSES),
+        )
+    )
+    if exclude_booking_id:
+        query = query.filter(Booking.id != exclude_booking_id)
+    return int(query.scalar() or 0)
 
 
 @router.post("/", response_model=BookingOut)
@@ -32,8 +52,21 @@ def create_booking(payload: BookingCreate, db: Session = Depends(get_db)) -> Boo
     )
     if not route_date:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Выберите дату из доступных")
-    if route_date.is_booked:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Дата уже забронирована")
+    starts_at = _starts_at_value(route_date)
+    if starts_at < datetime.now() + timedelta(hours=24):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Бронь доступна не позднее чем за 24 часа до начала экскурсии",
+        )
+    booked_count = _booked_participants(db, payload.route_id, payload.desired_date)
+    available = route.max_participants - booked_count
+    if available <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Дата полностью занята")
+    if payload.participants > available:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Недостаточно свободных мест на выбранную дату",
+        )
     if payload.participants > route.max_participants:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -135,8 +168,7 @@ def update_booking(
     if payload.status:
         previous_status = booking.status
         next_status = payload.status
-        booked_statuses = {BookingStatus.confirmed, BookingStatus.completed}
-        if next_status in booked_statuses and previous_status not in booked_statuses:
+        if next_status in BOOKED_STATUSES and previous_status not in BOOKED_STATUSES:
             route_date = (
                 db.query(RouteDate)
                 .filter(
@@ -151,13 +183,17 @@ def update_booking(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Дата больше недоступна для бронирования",
                 )
-            if route_date.is_booked:
+            route = db.query(Route).filter(Route.id == booking.route_id).first()
+            if not route:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+            booked_count = _booked_participants(db, booking.route_id, booking.desired_date)
+            if booked_count + booking.participants > route.max_participants:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Дата уже забронирована",
+                    detail="Недостаточно свободных мест на выбранную дату",
                 )
-            route_date.is_booked = True
-        if previous_status in booked_statuses and next_status not in booked_statuses:
+            route_date.is_booked = booked_count + booking.participants >= route.max_participants
+        if previous_status in BOOKED_STATUSES and next_status not in BOOKED_STATUSES:
             route_date = (
                 db.query(RouteDate)
                 .filter(
@@ -167,18 +203,15 @@ def update_booking(
                 .first()
             )
             if route_date:
-                other_confirmed = (
-                    db.query(Booking)
-                    .filter(
-                        Booking.route_id == booking.route_id,
-                        Booking.desired_date == booking.desired_date,
-                        Booking.status.in_(booked_statuses),
-                        Booking.id != booking.id,
+                route = db.query(Route).filter(Route.id == booking.route_id).first()
+                if route:
+                    booked_count = _booked_participants(
+                        db,
+                        booking.route_id,
+                        booking.desired_date,
+                        exclude_booking_id=booking.id,
                     )
-                    .first()
-                )
-                if not other_confirmed:
-                    route_date.is_booked = False
+                    route_date.is_booked = booked_count >= route.max_participants
         booking.status = next_status
         booking.status_updated_at = datetime.utcnow()
     if payload.internal_notes is not None:

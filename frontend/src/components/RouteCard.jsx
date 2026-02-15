@@ -7,6 +7,8 @@ const formatHours = (value) => `${value.toFixed(1)} ч`;
 
 export default function RouteCard({ route }) {
   const cover = route.cover_photo ? `${apiBase}${route.cover_photo}` : null;
+  const ratingValue = route.rating_count ? Number(route.rating_avg).toFixed(1) : "—";
+  const ratingTitle = route.rating_count ? `${route.rating_count} отзывов` : "Пока нет отзывов";
 
   return (
     <Link className="route-card" to={`/route/${route.id}`}>
@@ -23,6 +25,7 @@ export default function RouteCard({ route }) {
           <div className="route-card-footer">
             <div className="route-card-meta">
               <span>⏱ {formatHours(route.duration_hours)}</span>
+              <span className="route-rating" title={ratingTitle}>★ {ratingValue}</span>
               <span>₽ {route.price_adult.toFixed(0)}</span>
               <span>👥 {route.max_participants}</span>
             </div>

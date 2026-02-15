@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
@@ -7,12 +7,11 @@ from sqlalchemy.orm import Session
 from app.audit import log_action
 from app.auth import get_optional_user, require_roles
 from app.db import get_db
-from app.models import Booking, BookingStatus, CompletedExcursion, Photo, Point, Review, Route, RouteDate
+from app.models import Booking, BookingStatus, Photo, Point, Review, Route, RouteDate
 from app.schemas import (
-    CompletedExcursionCreate,
-    CompletedExcursionOut,
     ReviewCreate,
     ReviewOut,
+    ReviewUpdate,
     RouteCreate,
     RouteDateCreate,
     RouteDateOut,
@@ -34,6 +33,38 @@ def _cover_photo(route: Route) -> str | None:
     return None
 
 
+def _starts_at_value(route_date: RouteDate) -> datetime:
+    return route_date.starts_at or datetime.combine(route_date.date, time(0, 0))
+
+
+def _ensure_minimum_notice(starts_at: datetime) -> None:
+    if starts_at < datetime.now() + timedelta(hours=24):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Добавлять дату можно минимум за сутки до начала экскурсии",
+        )
+
+
+def _ensure_no_overlap(
+    route: Route,
+    existing_dates: list[RouteDate],
+    starts_at: datetime,
+    exclude_id: int | None = None,
+) -> None:
+    duration = timedelta(hours=route.duration_hours)
+    new_end = starts_at + duration
+    for item in existing_dates:
+        if exclude_id and item.id == exclude_id:
+            continue
+        existing_start = _starts_at_value(item)
+        existing_end = existing_start + duration
+        if starts_at < existing_end and new_end > existing_start:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Экскурсия пересекается по времени с другой датой",
+            )
+
+
 @router.get("/", response_model=list[RouteListItem])
 def list_routes(
     include_unpublished: bool = False,
@@ -41,7 +72,21 @@ def list_routes(
     db: Session = Depends(get_db),
     user=Depends(get_optional_user),
 ) -> list[RouteListItem]:
-    query = db.query(Route)
+    review_stats = (
+        db.query(
+            RouteDate.route_id.label("route_id"),
+            func.avg(Review.rating).label("rating_avg"),
+            func.count(Review.id).label("rating_count"),
+        )
+        .join(RouteDate, Review.route_date_id == RouteDate.id)
+        .filter(Review.is_approved.is_(True))
+        .group_by(RouteDate.route_id)
+        .subquery()
+    )
+    query = (
+        db.query(Route, review_stats.c.rating_avg, review_stats.c.rating_count)
+        .outerjoin(review_stats, review_stats.c.route_id == Route.id)
+    )
     if include_unpublished:
         if not user:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется авторизация")
@@ -49,7 +94,7 @@ def list_routes(
         query = query.filter(Route.is_published.is_(True))
     if search:
         query = query.filter(Route.title.ilike(f"%{search}%"))
-    routes = query.order_by(Route.created_at.desc()).all()
+    rows = query.order_by(Route.created_at.desc()).all()
     return [
         RouteListItem(
             id=route.id,
@@ -60,8 +105,10 @@ def list_routes(
             max_participants=route.max_participants,
             is_published=route.is_published,
             cover_photo=_cover_photo(route),
+            rating_avg=rating_avg,
+            rating_count=rating_count or 0,
         )
-        for route in routes
+        for route, rating_avg, rating_count in rows
     ]
 
 
@@ -74,7 +121,14 @@ def get_route(
     route = db.query(Route).filter(Route.id == route_id).first()
     if not route or (not route.is_published and not user):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
-    return RouteOut.model_validate(route)
+    rating_avg, rating_count = (
+        db.query(func.avg(Review.rating), func.count(Review.id))
+        .join(RouteDate, Review.route_date_id == RouteDate.id)
+        .filter(RouteDate.route_id == route_id, Review.is_approved.is_(True))
+        .first()
+    )
+    route_out = RouteOut.model_validate(route)
+    return route_out.model_copy(update={"rating_avg": rating_avg, "rating_count": rating_count or 0})
 
 
 @router.post("/", response_model=RouteOut)
@@ -186,6 +240,7 @@ def list_route_dates(
     route_id: int,
     include_booked: bool = False,
     include_inactive: bool = False,
+    include_past: bool = False,
     db: Session = Depends(get_db),
     user=Depends(get_optional_user),
 ) -> list[RouteDateOut]:
@@ -200,11 +255,15 @@ def list_route_dates(
         if not include_booked:
             query = query.filter(RouteDate.is_booked.is_(False))
     else:
-        query = query.filter(
-            RouteDate.is_active.is_(True),
-            RouteDate.is_booked.is_(False),
-            RouteDate.date >= date.today(),
-        )
+        if include_past:
+            query = query.filter(RouteDate.starts_at <= datetime.now())
+        else:
+            min_start = datetime.now() + timedelta(hours=24)
+            query = query.filter(
+                RouteDate.is_active.is_(True),
+                RouteDate.is_booked.is_(False),
+                RouteDate.starts_at >= min_start,
+            )
     dates = query.order_by(RouteDate.date.asc()).all()
     return [RouteDateOut.model_validate(item) for item in dates]
 
@@ -219,12 +278,32 @@ def create_route_date(
     route = db.query(Route).filter(Route.id == route_id).first()
     if not route:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
-    exists = db.query(RouteDate).filter(RouteDate.route_id == route_id, RouteDate.date == payload.date).first()
+    starts_at = payload.starts_at
+    date_value = payload.date
+    if starts_at:
+        date_value = starts_at.date()
+    if not starts_at:
+        starts_at = datetime.combine(date_value, time(0, 0))
+    _ensure_minimum_notice(starts_at)
+    exists = db.query(RouteDate).filter(RouteDate.route_id == route_id, RouteDate.date == date_value).first()
     if exists:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Дата уже добавлена")
-    route_date = RouteDate(route_id=route_id, date=payload.date, is_active=True, is_booked=False)
+    existing_dates = db.query(RouteDate).filter(RouteDate.route_id == route_id).all()
+    _ensure_no_overlap(route, existing_dates, starts_at)
+    route_date = RouteDate(
+        route_id=route_id,
+        date=date_value,
+        starts_at=starts_at,
+        is_active=True,
+        is_booked=False,
+    )
     db.add(route_date)
-    log_action(db, user, "route_date_create", {"route_id": route_id, "date": payload.date.isoformat()})
+    log_action(
+        db,
+        user,
+        "route_date_create",
+        {"route_id": route_id, "date": date_value.isoformat(), "starts_at": starts_at.isoformat()},
+    )
     db.commit()
     db.refresh(route_date)
     return RouteDateOut.model_validate(route_date)
@@ -245,13 +324,58 @@ def update_route_date(
     )
     if not route_date:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Дата не найдена")
+    route = db.query(Route).filter(Route.id == route_id).first()
+    if not route:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+    original_date = route_date.date
+    next_date = route_date.date
+    next_starts_at = route_date.starts_at
+    if payload.starts_at:
+        next_starts_at = payload.starts_at
+        next_date = payload.starts_at.date()
+    elif payload.date:
+        next_date = payload.date
+        if route_date.starts_at:
+            next_starts_at = datetime.combine(payload.date, route_date.starts_at.time())
+        else:
+            next_starts_at = datetime.combine(payload.date, time(0, 0))
+    if not next_starts_at:
+        next_starts_at = datetime.combine(next_date, time(0, 0))
+    schedule_changed = bool(payload.starts_at or payload.date)
+    if schedule_changed:
+        _ensure_minimum_notice(next_starts_at)
+        existing_dates = db.query(RouteDate).filter(RouteDate.route_id == route_id).all()
+        _ensure_no_overlap(route, existing_dates, next_starts_at, exclude_id=route_date.id)
+    if next_date != original_date:
+        exists = (
+            db.query(RouteDate)
+            .filter(RouteDate.route_id == route_id, RouteDate.date == next_date, RouteDate.id != route_date.id)
+            .first()
+        )
+        if exists:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Дата уже занята")
+        route_date.date = next_date
+        route_date.starts_at = next_starts_at
+        db.query(Booking).filter(
+            Booking.route_id == route_id,
+            Booking.desired_date == original_date,
+            Booking.status != BookingStatus.canceled,
+        ).update({Booking.desired_date: next_date}, synchronize_session=False)
+    elif payload.starts_at:
+        route_date.starts_at = next_starts_at
     if payload.is_active is not None:
         route_date.is_active = payload.is_active
     log_action(
         db,
         user,
         "route_date_update",
-        {"route_id": route_id, "date_id": route_date.id, "is_active": payload.is_active},
+        {
+            "route_id": route_id,
+            "date_id": route_date.id,
+            "is_active": payload.is_active,
+            "date": route_date.date.isoformat(),
+            "starts_at": route_date.starts_at.isoformat() if route_date.starts_at else None,
+        },
     )
     db.commit()
     db.refresh(route_date)
@@ -280,87 +404,40 @@ def delete_route_date(
     return {"status": "ok"}
 
 
-@router.get("/{route_id}/completed-excursions", response_model=list[CompletedExcursionOut])
-def list_completed_excursions(
-    route_id: int,
-    db: Session = Depends(get_db),
-    user=Depends(get_optional_user),
-) -> list[CompletedExcursionOut]:
-    route = db.query(Route).filter(Route.id == route_id).first()
-    if not route or (not route.is_published and not user):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
-    query = db.query(CompletedExcursion).filter(CompletedExcursion.route_id == route_id)
-    if not user:
-        query = query.filter(CompletedExcursion.starts_at <= datetime.now())
-    excursions = query.order_by(CompletedExcursion.starts_at.desc()).all()
-    return [CompletedExcursionOut.model_validate(item) for item in excursions]
-
-
-@router.post("/{route_id}/completed-excursions", response_model=CompletedExcursionOut)
-def create_completed_excursion(
-    route_id: int,
-    payload: CompletedExcursionCreate,
-    db: Session = Depends(get_db),
-    user=Depends(require_roles("manager", "admin")),
-) -> CompletedExcursionOut:
-    route = db.query(Route).filter(Route.id == route_id).first()
-    if not route:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
-    if payload.starts_at > datetime.now():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Проведенная экскурсия не может быть в будущем",
-        )
-    exists = (
-        db.query(CompletedExcursion)
-        .filter(
-            CompletedExcursion.route_id == route_id,
-            CompletedExcursion.starts_at == payload.starts_at,
-        )
-        .first()
-    )
-    if exists:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Экскурсия уже добавлена")
-    excursion = CompletedExcursion(route_id=route_id, starts_at=payload.starts_at)
-    db.add(excursion)
-    log_action(
-        db,
-        user,
-        "completed_excursion_create",
-        {"route_id": route_id, "starts_at": payload.starts_at.isoformat()},
-    )
-    db.commit()
-    db.refresh(excursion)
-    return CompletedExcursionOut.model_validate(excursion)
-
-
 @router.get("/{route_id}/reviews", response_model=list[ReviewOut])
 def list_reviews(
     route_id: int,
+    include_pending: bool = False,
     db: Session = Depends(get_db),
     user=Depends(get_optional_user),
 ) -> list[ReviewOut]:
     route = db.query(Route).filter(Route.id == route_id).first()
     if not route or (not route.is_published and not user):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
-    rows = (
-        db.query(Review, CompletedExcursion.starts_at)
-        .join(CompletedExcursion, Review.excursion_id == CompletedExcursion.id)
-        .filter(CompletedExcursion.route_id == route_id)
-        .order_by(Review.created_at.desc())
-        .all()
+    query = (
+        db.query(Review, RouteDate)
+        .join(RouteDate, Review.route_date_id == RouteDate.id)
+        .filter(RouteDate.route_id == route_id)
     )
+    is_manager = bool(user and user.role.value in {"manager", "admin"})
+    if include_pending:
+        if not is_manager:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется авторизация")
+    else:
+        query = query.filter(Review.is_approved.is_(True))
+    rows = query.order_by(Review.created_at.desc()).all()
     return [
         ReviewOut(
             id=review.id,
-            excursion_id=review.excursion_id,
+            route_date_id=review.route_date_id,
             author_name=review.author_name,
             rating=review.rating,
             comment=review.comment,
+            is_approved=review.is_approved,
             created_at=review.created_at,
-            excursion_starts_at=starts_at,
+            excursion_starts_at=(route_date.starts_at or datetime.combine(route_date.date, time(0, 0))),
         )
-        for review, starts_at in rows
+        for review, route_date in rows
     ]
 
 
@@ -373,17 +450,18 @@ def create_review(
     route = db.query(Route).filter(Route.id == route_id, Route.is_published.is_(True)).first()
     if not route:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
-    excursion = (
-        db.query(CompletedExcursion)
+    route_date = (
+        db.query(RouteDate)
         .filter(
-            CompletedExcursion.id == payload.excursion_id,
-            CompletedExcursion.route_id == route_id,
+            RouteDate.id == payload.route_date_id,
+            RouteDate.route_id == route_id,
         )
         .first()
     )
-    if not excursion:
+    if not route_date:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Экскурсия не найдена")
-    if excursion.starts_at > datetime.now():
+    starts_at = route_date.starts_at or datetime.combine(route_date.date, time(0, 0))
+    if starts_at > datetime.now():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Экскурсия еще не проведена",
@@ -403,42 +481,83 @@ def create_review(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Отзыв доступен после завершения экскурсии",
         )
-    if booking.desired_date != excursion.starts_at.date():
+    if booking.desired_date != route_date.date:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Бронь не относится к выбранной экскурсии",
         )
     exists = (
         db.query(Review)
-        .filter(Review.excursion_id == excursion.id, Review.booking_id == booking.id)
+        .filter(Review.route_date_id == route_date.id, Review.booking_id == booking.id)
         .first()
     )
     if exists:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Отзыв уже оставлен")
     review = Review(
-        excursion_id=excursion.id,
+        route_date_id=route_date.id,
         booking_id=booking.id,
         author_name=booking.client_name,
         rating=payload.rating,
         comment=payload.comment,
+        is_approved=False,
     )
     db.add(review)
     log_action(
         db,
         None,
         "review_create",
-        {"route_id": route_id, "excursion_id": excursion.id, "booking_id": booking.id},
+        {"route_id": route_id, "route_date_id": route_date.id, "booking_id": booking.id},
     )
     db.commit()
     db.refresh(review)
     return ReviewOut(
         id=review.id,
-        excursion_id=review.excursion_id,
+        route_date_id=review.route_date_id,
         author_name=review.author_name,
         rating=review.rating,
         comment=review.comment,
+        is_approved=review.is_approved,
         created_at=review.created_at,
-        excursion_starts_at=excursion.starts_at,
+        excursion_starts_at=starts_at,
+    )
+
+
+@router.patch("/{route_id}/reviews/{review_id}", response_model=ReviewOut)
+def update_review(
+    route_id: int,
+    review_id: int,
+    payload: ReviewUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("manager", "admin")),
+) -> ReviewOut:
+    row = (
+        db.query(Review, RouteDate)
+        .join(RouteDate, Review.route_date_id == RouteDate.id)
+        .filter(Review.id == review_id, RouteDate.route_id == route_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Отзыв не найден")
+    review, route_date = row
+    if payload.is_approved is not None:
+        review.is_approved = payload.is_approved
+    log_action(
+        db,
+        user,
+        "review_update",
+        {"route_id": route_id, "review_id": review.id, "is_approved": review.is_approved},
+    )
+    db.commit()
+    db.refresh(review)
+    return ReviewOut(
+        id=review.id,
+        route_date_id=review.route_date_id,
+        author_name=review.author_name,
+        rating=review.rating,
+        comment=review.comment,
+        is_approved=review.is_approved,
+        created_at=review.created_at,
+        excursion_starts_at=(route_date.starts_at or datetime.combine(route_date.date, time(0, 0))),
     )
 
 

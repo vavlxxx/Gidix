@@ -69,12 +69,6 @@ class Route(Base):
         cascade="all, delete-orphan",
         order_by="RouteDate.date",
     )
-    completed_excursions = relationship(
-        "CompletedExcursion",
-        back_populates="route",
-        cascade="all, delete-orphan",
-        order_by="CompletedExcursion.starts_at",
-    )
     bookings = relationship("Booking", back_populates="route")
 
 
@@ -85,24 +79,13 @@ class RouteDate(Base):
     id = Column(Integer, primary_key=True)
     route_id = Column(Integer, ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
     date = Column(Date, nullable=False)
+    starts_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     is_booked = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     route = relationship("Route", back_populates="available_dates")
-
-
-class CompletedExcursion(Base):
-    __tablename__ = "completed_excursions"
-    __table_args__ = (UniqueConstraint("route_id", "starts_at", name="uq_completed_excursion_route_time"),)
-
-    id = Column(Integer, primary_key=True)
-    route_id = Column(Integer, ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
-    starts_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    route = relationship("Route", back_populates="completed_excursions")
-    reviews = relationship("Review", back_populates="excursion", cascade="all, delete-orphan")
+    reviews = relationship("Review", back_populates="route_date", cascade="all, delete-orphan")
 
 
 class Point(Base):
@@ -157,17 +140,18 @@ class Booking(Base):
 
 class Review(Base):
     __tablename__ = "reviews"
-    __table_args__ = (UniqueConstraint("excursion_id", "booking_id", name="uq_review_excursion_booking"),)
+    __table_args__ = (UniqueConstraint("route_date_id", "booking_id", name="uq_review_route_date_booking"),)
 
     id = Column(Integer, primary_key=True)
-    excursion_id = Column(Integer, ForeignKey("completed_excursions.id", ondelete="CASCADE"), nullable=False)
+    route_date_id = Column(Integer, ForeignKey("route_dates.id", ondelete="CASCADE"), nullable=False)
     booking_id = Column(Integer, ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False)
     author_name = Column(String(200), nullable=False)
     rating = Column(Integer, nullable=False)
     comment = Column(Text, nullable=True)
+    is_approved = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    excursion = relationship("CompletedExcursion", back_populates="reviews")
+    route_date = relationship("RouteDate", back_populates="reviews")
     booking = relationship("Booking", back_populates="reviews")
 
 
