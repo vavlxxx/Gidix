@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { apiBase, apiFetch } from "../api";
+import { useToast } from "../context/ToastContext";
 
 export default function AdminRoutes() {
+  const { notify } = useToast();
   const [routes, setRoutes] = useState([]);
   const [distances, setDistances] = useState({});
   const [loading, setLoading] = useState(true);
@@ -27,7 +29,14 @@ export default function AdminRoutes() {
     setLoading(true);
     apiFetch("/api/routes/?include_unpublished=true")
       .then((data) => setRoutes(data))
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        setError(err.message);
+        notify({
+          type: "error",
+          title: "Не удалось загрузить маршруты",
+          message: err.message
+        });
+      })
       .finally(() => setLoading(false));
   };
 
@@ -76,8 +85,17 @@ export default function AdminRoutes() {
     try {
       await apiFetch(`/api/routes/${routeId}`, { method: "DELETE" });
       loadRoutes();
+      notify({
+        type: "success",
+        title: "Маршрут снят с публикации"
+      });
     } catch (err) {
       setError(err.message);
+      notify({
+        type: "error",
+        title: "Ошибка обновления маршрута",
+        message: err.message
+      });
     }
   };
 
@@ -94,7 +112,6 @@ export default function AdminRoutes() {
       </div>
 
       {loading && <p>Загрузка...</p>}
-      {error && <p className="error-text">{error}</p>}
       {!loading && !error && routes.length === 0 && (
         <p>Маршрутов пока нет. Нажмите "Новый маршрут", чтобы создать первый.</p>
       )}

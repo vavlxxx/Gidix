@@ -8,7 +8,7 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.db import SessionLocal, engine
-from app.models import Base
+from app.models import Base, Booking
 from app.routers import auth, bookings, routes, uploads, users
 from app.seed import seed_if_needed
 
@@ -61,6 +61,9 @@ def on_startup() -> None:
                 "UPDATE points SET geom = ST_SetSRID(ST_MakePoint(lng, lat), 4326) WHERE geom IS NULL"
             )
         )
+        if engine.dialect.name == "postgresql":
+            enum_name = Booking.__table__.c.status.type.name
+            conn.execute(text(f"ALTER TYPE {enum_name} ADD VALUE IF NOT EXISTS 'completed'"))
     with SessionLocal() as db:
         seed_if_needed(db)
 

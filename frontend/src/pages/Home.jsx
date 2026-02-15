@@ -4,8 +4,10 @@ import { apiFetch } from "../api";
 import RouteCard from "../components/RouteCard";
 import SiteFooter from "../components/SiteFooter";
 import SiteHeader from "../components/SiteHeader";
+import { useToast } from "../context/ToastContext";
 
 export default function Home() {
+  const { notify } = useToast();
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -13,7 +15,14 @@ export default function Home() {
   useEffect(() => {
     apiFetch("/api/routes/")
       .then((data) => setRoutes(data))
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        setError(err.message);
+        notify({
+          type: "error",
+          title: "Не удалось загрузить каталог",
+          message: err.message
+        });
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -90,7 +99,6 @@ export default function Home() {
           </div>
 
           {loading && <p>Загрузка каталога...</p>}
-          {error && <p className="error-text">{error}</p>}
           {!loading && !error && routes.length === 0 && (
             <p>Пока нет опубликованных маршрутов. Зайдите в админку, чтобы добавить первый.</p>
           )}

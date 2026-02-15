@@ -2,12 +2,13 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 
 export default function AdminLogin() {
   const { login } = useAuth();
+  const { notify } = useToast();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleChange = (event) => {
@@ -17,13 +18,16 @@ export default function AdminLogin() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setError("");
     setLoading(true);
     try {
       await login(form.email, form.password);
       navigate("/admin");
     } catch (err) {
-      setError(err.message);
+      notify({
+        type: "error",
+        title: "Не удалось войти",
+        message: err.message
+      });
     } finally {
       setLoading(false);
     }
@@ -46,7 +50,6 @@ export default function AdminLogin() {
           <button className="button primary" type="submit" disabled={loading}>
             {loading ? "Вход..." : "Войти"}
           </button>
-          {error && <p className="error-text">{error}</p>}
         </form>
         <Link className="button ghost" to="/">Вернуться на сайт</Link>
       </div>

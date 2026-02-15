@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 
 import { apiBase, uploadFile } from "../api";
+import { useToast } from "../context/ToastContext";
 
 export default function PhotoUploader({ photos, onChange }) {
+  const { notify } = useToast();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const handleFiles = async (event) => {
     const files = Array.from(event.target.files || []);
@@ -12,7 +13,6 @@ export default function PhotoUploader({ photos, onChange }) {
       return;
     }
     setLoading(true);
-    setError("");
     try {
       const uploaded = [];
       for (const file of files) {
@@ -29,7 +29,11 @@ export default function PhotoUploader({ photos, onChange }) {
       }
       onChange(next);
     } catch (err) {
-      setError(err.message);
+      notify({
+        type: "error",
+        title: "Ошибка загрузки фото",
+        message: err.message
+      });
     } finally {
       setLoading(false);
       event.target.value = "";
@@ -74,7 +78,6 @@ export default function PhotoUploader({ photos, onChange }) {
         <input type="file" multiple accept="image/*" onChange={handleFiles} />
         <span>{loading ? "Загрузка..." : "Перетащите фото или выберите"}</span>
       </label>
-      {error && <p className="error-text">{error}</p>}
       <div className="photo-list">
         {photos.map((photo, index) => (
           <div key={photo.file_path} className={`photo-item ${photo.is_cover ? "cover" : ""}`}>

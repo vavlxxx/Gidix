@@ -144,6 +144,22 @@ class RouteDateOut(RouteDateBase):
     model_config = {"from_attributes": True}
 
 
+class CompletedExcursionBase(BaseModel):
+    starts_at: datetime
+
+
+class CompletedExcursionCreate(CompletedExcursionBase):
+    pass
+
+
+class CompletedExcursionOut(CompletedExcursionBase):
+    id: int
+    route_id: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class BookingCreate(BaseModel):
     route_id: int
     client_name: str
@@ -194,6 +210,26 @@ class BookingUpdate(BaseModel):
 
 class BookingDetail(BookingOut):
     route_title: str
+
+
+class ReviewCreate(BaseModel):
+    excursion_id: int
+    booking_code: str
+    email: EmailStr
+    rating: int = Field(ge=1, le=5)
+    comment: Optional[str] = None
+
+
+class ReviewOut(BaseModel):
+    id: int
+    excursion_id: int
+    author_name: str
+    rating: int
+    comment: Optional[str]
+    created_at: datetime
+    excursion_starts_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 Token.model_rebuild()

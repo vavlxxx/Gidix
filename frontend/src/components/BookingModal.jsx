@@ -4,6 +4,7 @@ const statusLabels = {
   new: "Новая",
   in_progress: "В обработке",
   confirmed: "Подтверждена",
+  completed: "Проведена",
   canceled: "Отменена"
 };
 

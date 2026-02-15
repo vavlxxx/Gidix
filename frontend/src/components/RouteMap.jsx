@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import L from "leaflet";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip } from "react-leaflet";
+
+import { createPinIcon } from "./mapPins";
 
 const typeLabels = {
   museum: "Музей",
@@ -15,8 +16,25 @@ const typeLabels = {
 export default function RouteMap({ points, activePointKey }) {
   const hasPoints = Boolean(points?.length);
   const polyline = useMemo(() => (points || []).map((point) => [point.lat, point.lng]), [points]);
-  const defaultIcon = useMemo(() => new L.Icon.Default({ className: "route-marker" }), []);
-  const activeIcon = useMemo(() => new L.Icon.Default({ className: "route-marker route-marker--active" }), []);
+  const iconCache = useMemo(() => {
+    const icons = {};
+    (points || []).forEach((point) => {
+      const key = point.point_type || "other";
+      if (!icons[key]) {
+        icons[key] = {
+          base: createPinIcon(key),
+          active: createPinIcon(key, "map-pin--active")
+        };
+      }
+    });
+    if (!icons.other) {
+      icons.other = {
+        base: createPinIcon("other"),
+        active: createPinIcon("other", "map-pin--active")
+      };
+    }
+    return icons;
+  }, [points]);
   const [routeLine, setRouteLine] = useState(null);
 
   useEffect(() => {
@@ -85,12 +103,15 @@ export default function RouteMap({ points, activePointKey }) {
       {points.map((point, index) => {
         const pointKey = point._key ?? point.id ?? `${point.lat}-${point.lng}-${index}`;
         const isActive = pointKey === activePointKey;
+        const pinType = point.point_type || "other";
+        const iconPack = iconCache[pinType] || iconCache.other;
+        const icon = isActive ? iconPack.active : iconPack.base;
 
         return (
           <Marker
             key={pointKey}
             position={[point.lat, point.lng]}
-            icon={isActive ? activeIcon : defaultIcon}
+            icon={icon}
             zIndexOffset={isActive ? 800 : 0}
           >
             <Tooltip direction="top" offset={[0, -6]} opacity={0.95}>

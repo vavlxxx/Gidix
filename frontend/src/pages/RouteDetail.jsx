@@ -4,9 +4,11 @@ import ReactMarkdown from "react-markdown";
 
 import { apiBase, apiFetch } from "../api";
 import BookingForm from "../components/BookingForm";
+import ReviewSection from "../components/ReviewSection";
 import RouteMap from "../components/RouteMap";
 import SiteFooter from "../components/SiteFooter";
 import SiteHeader from "../components/SiteHeader";
+import { useToast } from "../context/ToastContext";
 
 const pointTypeLabels = {
   museum: "Музей",
@@ -20,19 +22,28 @@ const pointTypeLabels = {
 
 export default function RouteDetail() {
   const { id } = useParams();
+  const { notify } = useToast();
   const [route, setRoute] = useState(null);
   const [orderedPoints, setOrderedPoints] = useState([]);
   const [selectedPointKey, setSelectedPointKey] = useState(null);
   const [hoveredPointKey, setHoveredPointKey] = useState(null);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [error, setError] = useState("");
+  const [lightboxIndex, setLightboxIndex] = useState(null);
 
   useEffect(() => {
     apiFetch(`/api/routes/${id}`)
       .then((data) => {
         setRoute(data);
       })
-      .catch((err) => setError(err.message));
+      .catch((err) => {
+        setError(err.message);
+        notify({
+          type: "error",
+          title: "Не удалось загрузить маршрут",
+          message: err.message
+        });
+      });
   }, [id]);
 
   useEffect(() => {
@@ -72,6 +83,58 @@ export default function RouteDetail() {
     }
   }, [pointsWithKey, selectedPointKey]);
 
+  const openLightbox = (index) => {
+    setLightboxIndex(index);
+  };
+
+  const closeLightbox = () => {
+    setLightboxIndex(null);
+  };
+
+  const showPrev = (event) => {
+    event?.stopPropagation();
+    setLightboxIndex((prev) => {
+      if (prev === null || galleryPhotos.length === 0) return prev;
+      return (prev - 1 + galleryPhotos.length) % galleryPhotos.length;
+    });
+  };
+
+  const showNext = (event) => {
+    event?.stopPropagation();
+    setLightboxIndex((prev) => {
+      if (prev === null || galleryPhotos.length === 0) return prev;
+      return (prev + 1) % galleryPhotos.length;
+    });
+  };
+
+  useEffect(() => {
+    if (lightboxIndex === null) {
+      return;
+    }
+    if (lightboxIndex >= galleryPhotos.length) {
+      setLightboxIndex(null);
+      return;
+    }
+    const handleKey = (event) => {
+      if (event.key === "Escape") {
+        closeLightbox();
+      }
+      if (event.key === "ArrowLeft") {
+        showPrev();
+      }
+      if (event.key === "ArrowRight") {
+        showNext();
+      }
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [lightboxIndex, galleryPhotos.length]);
+
   const activePointKey = hoveredPointKey || selectedPointKey;
 
   if (error) {
@@ -80,7 +143,7 @@ export default function RouteDetail() {
         <SiteHeader />
         <section className="section">
           <div className="section-inner">
-            <p className="error-text">{error}</p>
+            <p>Не удалось загрузить маршрут. Попробуйте обновить страницу позже.</p>
             <Link className="button ghost" to="/">Вернуться в каталог</Link>
           </div>
         </section>
@@ -243,11 +306,18 @@ export default function RouteDetail() {
             <div className="route-gallery-grid">
               {galleryPhotos.map((photo, index) => (
                 <figure key={photo.id || `${photo.file_path}-${index}`} className="route-gallery-item">
-                  <img
-                    src={`${apiBase}${photo.file_path}`}
-                    alt={`${route.title} - фото ${index + 1}`}
-                    loading="lazy"
-                  />
+                  <button
+                    className="route-gallery-button"
+                    type="button"
+                    onClick={() => openLightbox(index)}
+                    aria-label={`Открыть фото ${index + 1}`}
+                  >
+                    <img
+                      src={`${apiBase}${photo.file_path}`}
+                      alt={`${route.title} - фото ${index + 1}`}
+                      loading="lazy"
+                    />
+                  </button>
                 </figure>
               ))}
             </div>
@@ -328,6 +398,53 @@ export default function RouteDetail() {
           <BookingForm routeId={route.id} maxParticipants={route.max_participants} />
         </div>
       </section>
+
+      <section className="section section--reviews">
+        <div className="section-inner">
+          <ReviewSection routeId={route.id} />
+        </div>
+      </section>
+      {lightboxIndex !== null && galleryPhotos[lightboxIndex] && (
+        <div className="gallery-lightbox" role="dialog" aria-modal="true" onClick={closeLightbox}>
+          <div className="gallery-lightbox-content" onClick={(event) => event.stopPropagation()}>
+            <button
+              className="gallery-lightbox-close"
+              type="button"
+              aria-label="Закрыть фото"
+              onClick={closeLightbox}
+            >
+              ✕
+            </button>
+            <img
+              src={`${apiBase}${galleryPhotos[lightboxIndex].file_path}`}
+              alt={`${route.title} - фото ${lightboxIndex + 1}`}
+            />
+            <div className="gallery-lightbox-caption">
+              Фото {lightboxIndex + 1} из {galleryPhotos.length}
+            </div>
+            {galleryPhotos.length > 1 && (
+              <>
+                <button
+                  className="gallery-lightbox-nav gallery-lightbox-nav--prev"
+                  type="button"
+                  aria-label="Предыдущее фото"
+                  onClick={showPrev}
+                >
+                  ←
+                </button>
+                <button
+                  className="gallery-lightbox-nav gallery-lightbox-nav--next"
+                  type="button"
+                  aria-label="Следующее фото"
+                  onClick={showNext}
+                >
+                  →
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       <SiteFooter />
     </div>
   );

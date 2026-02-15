@@ -135,7 +135,8 @@ def update_booking(
     if payload.status:
         previous_status = booking.status
         next_status = payload.status
-        if next_status == BookingStatus.confirmed and previous_status != BookingStatus.confirmed:
+        booked_statuses = {BookingStatus.confirmed, BookingStatus.completed}
+        if next_status in booked_statuses and previous_status not in booked_statuses:
             route_date = (
                 db.query(RouteDate)
                 .filter(
@@ -156,7 +157,7 @@ def update_booking(
                     detail="Дата уже забронирована",
                 )
             route_date.is_booked = True
-        if previous_status == BookingStatus.confirmed and next_status != BookingStatus.confirmed:
+        if previous_status in booked_statuses and next_status not in booked_statuses:
             route_date = (
                 db.query(RouteDate)
                 .filter(
@@ -171,7 +172,7 @@ def update_booking(
                     .filter(
                         Booking.route_id == booking.route_id,
                         Booking.desired_date == booking.desired_date,
-                        Booking.status == BookingStatus.confirmed,
+                        Booking.status.in_(booked_statuses),
                         Booking.id != booking.id,
                     )
                     .first()

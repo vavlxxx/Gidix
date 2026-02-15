@@ -2,11 +2,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import InputMask from "react-input-mask";
 
 import { apiFetch } from "../api";
+import { useToast } from "../context/ToastContext";
 
 export default function BookingForm({ routeId, maxParticipants }) {
+  const { notify } = useToast();
   const [availableDates, setAvailableDates] = useState([]);
   const [dateStatus, setDateStatus] = useState("idle");
-  const [dateError, setDateError] = useState("");
   const [form, setForm] = useState({
     client_name: "",
     phone: "",
@@ -17,15 +18,19 @@ export default function BookingForm({ routeId, maxParticipants }) {
     consent: false
   });
   const [status, setStatus] = useState("idle");
-  const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (!routeId) return;
     setDateStatus("loading");
-    setDateError("");
     apiFetch(`/api/routes/${routeId}/dates`)
       .then((data) => setAvailableDates(data))
-      .catch((err) => setDateError(err.message))
+      .catch((err) =>
+        notify({
+          type: "error",
+          title: "Не удалось загрузить даты",
+          message: err.message
+        })
+      )
       .finally(() => setDateStatus("idle"));
   }, [routeId]);
 
@@ -71,11 +76,14 @@ export default function BookingForm({ routeId, maxParticipants }) {
     event.preventDefault();
     if (!form.desired_date) {
       setStatus("error");
-      setMessage("Выберите дату из доступных.");
+      notify({
+        type: "error",
+        title: "Выберите дату",
+        message: "Нужно выбрать дату из доступных."
+      });
       return;
     }
     setStatus("loading");
-    setMessage("");
     try {
       const payload = {
         ...form,
@@ -87,7 +95,11 @@ export default function BookingForm({ routeId, maxParticipants }) {
         body: JSON.stringify(payload)
       });
       setStatus("success");
-      setMessage(`Заявка отправлена. Номер: ${response.code}`);
+      notify({
+        type: "success",
+        title: "Заявка отправлена",
+        message: `Номер брони: ${response.code}`
+      });
       setForm((prev) => ({
         ...prev,
         client_name: "",
@@ -100,7 +112,11 @@ export default function BookingForm({ routeId, maxParticipants }) {
       }));
     } catch (error) {
       setStatus("error");
-      setMessage(error.message);
+      notify({
+        type: "error",
+        title: "Ошибка отправки",
+        message: error.message
+      });
     }
   };
 
@@ -163,8 +179,7 @@ export default function BookingForm({ routeId, maxParticipants }) {
             )}
           </div>
           {dateStatus === "loading" && <p>Загрузка дат...</p>}
-          {dateError && <p className="error-text">{dateError}</p>}
-          {dateStatus !== "loading" && !dateError && availableDates.length === 0 && (
+          {dateStatus !== "loading" && availableDates.length === 0 && (
             <p>Пока нет доступных дат. Попробуйте позже.</p>
           )}
           <div className="date-table">
@@ -218,9 +233,6 @@ export default function BookingForm({ routeId, maxParticipants }) {
       <button className="button primary" type="submit" disabled={status === "loading"}>
         {status === "loading" ? "Отправка..." : "Отправить заявку"}
       </button>
-      {message && (
-        <p className={status === "error" ? "error-text" : "success-text"}>{message}</p>
-      )}
     </form>
   );
 }

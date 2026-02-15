@@ -6,6 +6,7 @@ import { apiFetch } from "../api";
 import MapEditor from "../components/MapEditor";
 import PhotoUploader from "../components/PhotoUploader";
 import PointModal from "../components/PointModal";
+import { useToast } from "../context/ToastContext";
 
 const emptyRoute = {
   title: "",
@@ -56,6 +57,7 @@ const haversine = (a, b) => {
 export default function AdminRouteForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { notify } = useToast();
   const isEdit = Boolean(id);
   const [route, setRoute] = useState(emptyRoute);
   const [points, setPoints] = useState([]);
@@ -64,11 +66,12 @@ export default function AdminRouteForm() {
   const [draftPoint, setDraftPoint] = useState(defaultPoint);
   const [editingIndex, setEditingIndex] = useState(null);
   const [availableDates, setAvailableDates] = useState([]);
+  const [completedExcursions, setCompletedExcursions] = useState([]);
   const [newDate, setNewDate] = useState("");
+  const [newExcursionTime, setNewExcursionTime] = useState("");
   const [dateStatus, setDateStatus] = useState("idle");
-  const [dateError, setDateError] = useState("");
+  const [excursionStatus, setExcursionStatus] = useState("idle");
   const [status, setStatus] = useState("idle");
-  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!isEdit) {
@@ -96,7 +99,13 @@ export default function AdminRouteForm() {
           is_cover: photo.is_cover
         })));
       })
-      .catch((err) => setError(err.message));
+      .catch((err) => {
+        notify({
+          type: "error",
+          title: "Не удалось загрузить маршрут",
+          message: err.message
+        });
+      });
   }, [id, isEdit]);
 
   useEffect(() => {
@@ -105,11 +114,34 @@ export default function AdminRouteForm() {
       return;
     }
     setDateStatus("loading");
-    setDateError("");
     apiFetch(`/api/routes/${id}/dates?include_booked=true&include_inactive=true`)
       .then((data) => setAvailableDates(data))
-      .catch((err) => setDateError(err.message))
+      .catch((err) => {
+        notify({
+          type: "error",
+          title: "Не удалось загрузить даты",
+          message: err.message
+        });
+      })
       .finally(() => setDateStatus("idle"));
+  }, [id, isEdit]);
+
+  useEffect(() => {
+    if (!isEdit) {
+      setCompletedExcursions([]);
+      return;
+    }
+    setExcursionStatus("loading");
+    apiFetch(`/api/routes/${id}/completed-excursions`)
+      .then((data) => setCompletedExcursions(data))
+      .catch((err) => {
+        notify({
+          type: "error",
+          title: "Не удалось загрузить проведенные экскурсии",
+          message: err.message
+        });
+      })
+      .finally(() => setExcursionStatus("idle"));
   }, [id, isEdit]);
 
   const stats = useMemo(() => {
@@ -213,7 +245,6 @@ export default function AdminRouteForm() {
 
   const handleSave = async (publishFlag, preview) => {
     setStatus("saving");
-    setError("");
     try {
       const payload = buildPayload(publishFlag);
       const response = await apiFetch(isEdit ? `/api/routes/${id}` : "/api/routes/", {
@@ -222,6 +253,13 @@ export default function AdminRouteForm() {
       });
       setStatus("saved");
       setRoute((prev) => ({ ...prev, is_published: publishFlag }));
+      const title = isEdit ? "Маршрут обновлен" : "Маршрут создан";
+      const message = publishFlag ? "Статус: опубликован" : "Статус: черновик";
+      notify({
+        type: "success",
+        title,
+        message: preview ? `${message}. Предпросмотр открыт.` : message
+      });
       if (!isEdit) {
         navigate(`/admin/routes/${response.id}`);
       }
@@ -229,15 +267,18 @@ export default function AdminRouteForm() {
         window.open(`/route/${response.id}`, "_blank");
       }
     } catch (err) {
-      setError(err.message);
       setStatus("error");
+      notify({
+        type: "error",
+        title: "Ошибка сохранения",
+        message: err.message
+      });
     }
   };
 
   const handleAddDate = async () => {
     if (!newDate || !isEdit) return;
     setDateStatus("saving");
-    setDateError("");
     try {
       const created = await apiFetch(`/api/routes/${id}/dates`, {
         method: "POST",
@@ -246,16 +287,24 @@ export default function AdminRouteForm() {
       setAvailableDates((prev) => [...prev, created].sort((a, b) => a.date.localeCompare(b.date)));
       setNewDate("");
       setDateStatus("idle");
+      notify({
+        type: "success",
+        title: "Дата добавлена",
+        message: formatDate(created.date)
+      });
     } catch (err) {
-      setDateError(err.message);
       setDateStatus("error");
+      notify({
+        type: "error",
+        title: "Ошибка добавления даты",
+        message: err.message
+      });
     }
   };
 
   const handleToggleDate = async (dateId, nextActive) => {
     if (!isEdit) return;
     setDateStatus("saving");
-    setDateError("");
     try {
       const updated = await apiFetch(`/api/routes/${id}/dates/${dateId}`, {
         method: "PATCH",
@@ -263,23 +312,67 @@ export default function AdminRouteForm() {
       });
       setAvailableDates((prev) => prev.map((item) => (item.id === dateId ? updated : item)));
       setDateStatus("idle");
+      notify({
+        type: "success",
+        title: "Дата обновлена",
+        message: nextActive ? "Дата открыта для бронирования" : "Дата скрыта"
+      });
     } catch (err) {
-      setDateError(err.message);
       setDateStatus("error");
+      notify({
+        type: "error",
+        title: "Ошибка обновления даты",
+        message: err.message
+      });
     }
   };
 
   const handleDeleteDate = async (dateId) => {
     if (!isEdit) return;
     setDateStatus("saving");
-    setDateError("");
     try {
       await apiFetch(`/api/routes/${id}/dates/${dateId}`, { method: "DELETE" });
       setAvailableDates((prev) => prev.filter((item) => item.id !== dateId));
       setDateStatus("idle");
+      notify({
+        type: "success",
+        title: "Дата удалена"
+      });
     } catch (err) {
-      setDateError(err.message);
       setDateStatus("error");
+      notify({
+        type: "error",
+        title: "Ошибка удаления даты",
+        message: err.message
+      });
+    }
+  };
+
+  const handleAddExcursion = async () => {
+    if (!newExcursionTime || !isEdit) return;
+    setExcursionStatus("saving");
+    try {
+      const created = await apiFetch(`/api/routes/${id}/completed-excursions`, {
+        method: "POST",
+        body: JSON.stringify({ starts_at: newExcursionTime })
+      });
+      setCompletedExcursions((prev) =>
+        [created, ...prev].sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at))
+      );
+      setNewExcursionTime("");
+      setExcursionStatus("idle");
+      notify({
+        type: "success",
+        title: "Экскурсия добавлена",
+        message: formatDateTime(created.starts_at)
+      });
+    } catch (err) {
+      setExcursionStatus("error");
+      notify({
+        type: "error",
+        title: "Ошибка добавления экскурсии",
+        message: err.message
+      });
     }
   };
 
@@ -289,6 +382,18 @@ export default function AdminRouteForm() {
     year: "numeric",
     weekday: "short"
   });
+
+  const formatDateTime = (value) => new Date(value).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  const maxExcursionTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
 
   return (
     <div className="admin-page">
@@ -405,7 +510,6 @@ export default function AdminRouteForm() {
                   </button>
                 </div>
                 {dateStatus === "loading" && <p>Загрузка дат...</p>}
-                {dateError && <p className="error-text">{dateError}</p>}
                 {availableDates.length === 0 && dateStatus !== "loading" && (
                   <p>Список пуст. Добавьте даты, чтобы они появились в форме бронирования.</p>
                 )}
@@ -441,6 +545,50 @@ export default function AdminRouteForm() {
                         >
                           Удалить
                         </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="editor-section">
+            <h3>Проведенные экскурсии</h3>
+            <p>Добавьте фактическую дату и время экскурсии, чтобы участники могли оставить отзыв.</p>
+            {!isEdit && (
+              <p>Сначала сохраните маршрут, чтобы фиксировать проведенные экскурсии.</p>
+            )}
+            {isEdit && (
+              <div className="date-manager">
+                <div className="date-manager-toolbar">
+                  <input
+                    type="datetime-local"
+                    value={newExcursionTime}
+                    max={maxExcursionTime}
+                    onChange={(event) => setNewExcursionTime(event.target.value)}
+                  />
+                  <button
+                    className="button primary"
+                    type="button"
+                    onClick={handleAddExcursion}
+                    disabled={!newExcursionTime || excursionStatus === "saving"}
+                  >
+                    Добавить экскурсию
+                  </button>
+                </div>
+                {excursionStatus === "loading" && <p>Загрузка проведенных экскурсий...</p>}
+                {completedExcursions.length === 0 && excursionStatus !== "loading" && (
+                  <p>Пока нет проведенных экскурсий.</p>
+                )}
+                <div className="date-manager-list">
+                  {completedExcursions.map((item) => (
+                    <div key={item.id} className="date-manager-item">
+                      <div>
+                        <strong>{formatDateTime(item.starts_at)}</strong>
+                        <div className="date-manager-meta">
+                          <span className="date-tag date-tag--active">Проведена</span>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -520,7 +668,6 @@ export default function AdminRouteForm() {
               </button>
             )}
           </div>
-          {error && <p className="error-text">{error}</p>}
         </div>
       </div>
 

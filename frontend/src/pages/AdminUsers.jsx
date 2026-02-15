@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 
 import { apiFetch } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 
 export default function AdminUsers() {
+  const { notify } = useToast();
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [form, setForm] = useState({
@@ -12,13 +14,16 @@ export default function AdminUsers() {
     password: "",
     role: "manager"
   });
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-
   const loadUsers = () => {
     apiFetch("/api/users/")
       .then((data) => setUsers(data))
-      .catch((err) => setError(err.message));
+      .catch((err) =>
+        notify({
+          type: "error",
+          title: "Не удалось загрузить пользователей",
+          message: err.message
+        })
+      );
   };
 
   useEffect(() => {
@@ -43,8 +48,6 @@ export default function AdminUsers() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setError("");
-    setMessage("");
     try {
       await apiFetch("/api/users/", {
         method: "POST",
@@ -56,24 +59,38 @@ export default function AdminUsers() {
           is_active: true
         })
       });
-      setMessage("Пользователь создан");
+      notify({
+        type: "success",
+        title: "Пользователь создан"
+      });
       setForm({ full_name: "", email: "", password: "", role: "manager" });
       loadUsers();
     } catch (err) {
-      setError(err.message);
+      notify({
+        type: "error",
+        title: "Ошибка создания пользователя",
+        message: err.message
+      });
     }
   };
 
   const handleUpdate = async (userId, payload) => {
-    setError("");
     try {
       await apiFetch(`/api/users/${userId}`, {
         method: "PATCH",
         body: JSON.stringify(payload)
       });
       loadUsers();
+      notify({
+        type: "success",
+        title: "Пользователь обновлен"
+      });
     } catch (err) {
-      setError(err.message);
+      notify({
+        type: "error",
+        title: "Ошибка обновления пользователя",
+        message: err.message
+      });
     }
   };
 
@@ -119,8 +136,6 @@ export default function AdminUsers() {
           </label>
           <button className="button primary" type="submit">Создать</button>
         </form>
-        {message && <p className="success-text">{message}</p>}
-        {error && <p className="error-text">{error}</p>}
       </div>
 
       <div className="table-wrapper">

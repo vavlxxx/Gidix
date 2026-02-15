@@ -2,15 +2,18 @@ import React, { useEffect, useState } from "react";
 
 import { apiFetch } from "../api";
 import BookingModal from "../components/BookingModal";
+import { useToast } from "../context/ToastContext";
 
 const statusLabels = {
   new: "Новая",
   in_progress: "В обработке",
   confirmed: "Подтверждена",
+  completed: "Проведена",
   canceled: "Отменена"
 };
 
 export default function AdminBookings() {
+  const { notify } = useToast();
   const [routes, setRoutes] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [filters, setFilters] = useState({
@@ -25,7 +28,15 @@ export default function AdminBookings() {
   const [selected, setSelected] = useState(null);
 
   const loadRoutes = () => {
-    apiFetch("/api/routes/?include_unpublished=true").then((data) => setRoutes(data));
+    apiFetch("/api/routes/?include_unpublished=true")
+      .then((data) => setRoutes(data))
+      .catch((err) =>
+        notify({
+          type: "error",
+          title: "Не удалось загрузить маршруты",
+          message: err.message
+        })
+      );
   };
 
   const buildQuery = () => {
@@ -44,7 +55,14 @@ export default function AdminBookings() {
     setError("");
     apiFetch(`/api/bookings/${buildQuery()}`)
       .then((data) => setBookings(data))
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        setError(err.message);
+        notify({
+          type: "error",
+          title: "Не удалось загрузить заявки",
+          message: err.message
+        });
+      })
       .finally(() => setLoading(false));
   };
 
@@ -64,6 +82,11 @@ export default function AdminBookings() {
       setSelected(detail);
     } catch (err) {
       setError(err.message);
+      notify({
+        type: "error",
+        title: "Не удалось открыть заявку",
+        message: err.message
+      });
     }
   };
 
@@ -76,8 +99,17 @@ export default function AdminBookings() {
       });
       setSelected(null);
       loadBookings();
+      notify({
+        type: "success",
+        title: "Заявка обновлена"
+      });
     } catch (err) {
       setError(err.message);
+      notify({
+        type: "error",
+        title: "Ошибка обновления заявки",
+        message: err.message
+      });
     }
   };
 
@@ -126,7 +158,6 @@ export default function AdminBookings() {
       </div>
 
       {loading && <p>Загрузка...</p>}
-      {error && <p className="error-text">{error}</p>}
       {!loading && !error && bookings.length === 0 && (
         <p>Заявок пока нет. Они появятся после отправки через сайт.</p>
       )}
