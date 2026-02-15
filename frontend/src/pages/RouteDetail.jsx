@@ -91,16 +91,14 @@ export default function RouteDetail() {
     setLightboxIndex(null);
   };
 
-  const showPrev = (event) => {
-    event?.stopPropagation();
+  const showPrev = () => {
     setLightboxIndex((prev) => {
       if (prev === null || galleryPhotos.length === 0) return prev;
       return (prev - 1 + galleryPhotos.length) % galleryPhotos.length;
     });
   };
 
-  const showNext = (event) => {
-    event?.stopPropagation();
+  const showNext = () => {
     setLightboxIndex((prev) => {
       if (prev === null || galleryPhotos.length === 0) return prev;
       return (prev + 1) % galleryPhotos.length;
@@ -406,42 +404,51 @@ export default function RouteDetail() {
       </section>
       {lightboxIndex !== null && galleryPhotos[lightboxIndex] && (
         <div className="gallery-lightbox" role="dialog" aria-modal="true" onClick={closeLightbox}>
-          <div className="gallery-lightbox-content" onClick={(event) => event.stopPropagation()}>
-            <button
-              className="gallery-lightbox-close"
-              type="button"
-              aria-label="Закрыть фото"
-              onClick={closeLightbox}
-            >
-              ✕
-            </button>
+          <button
+            className="gallery-lightbox-close"
+            type="button"
+            aria-label="Закрыть фото"
+            onClick={(event) => {
+              event.stopPropagation();
+              closeLightbox();
+            }}
+          >
+            ✕
+          </button>
+          {galleryPhotos.length > 1 && (
+            <>
+              <button
+                className="gallery-lightbox-nav gallery-lightbox-nav--prev"
+                type="button"
+                aria-label="Предыдущее фото"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  showPrev();
+                }}
+              >
+                &lt;
+              </button>
+              <button
+                className="gallery-lightbox-nav gallery-lightbox-nav--next"
+                type="button"
+                aria-label="Следующее фото"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  showNext();
+                }}
+              >
+                &gt;
+              </button>
+            </>
+          )}
+          <div className="gallery-lightbox-stage" onClick={(event) => event.stopPropagation()}>
             <img
               src={`${apiBase}${galleryPhotos[lightboxIndex].file_path}`}
               alt={`${route.title} - фото ${lightboxIndex + 1}`}
             />
             <div className="gallery-lightbox-caption">
-              Фото {lightboxIndex + 1} из {galleryPhotos.length}
+              {lightboxIndex + 1} / {galleryPhotos.length}
             </div>
-            {galleryPhotos.length > 1 && (
-              <>
-                <button
-                  className="gallery-lightbox-nav gallery-lightbox-nav--prev"
-                  type="button"
-                  aria-label="Предыдущее фото"
-                  onClick={showPrev}
-                >
-                  ←
-                </button>
-                <button
-                  className="gallery-lightbox-nav gallery-lightbox-nav--next"
-                  type="button"
-                  aria-label="Следующее фото"
-                  onClick={showNext}
-                >
-                  →
-                </button>
-              </>
-            )}
           </div>
         </div>
       )}

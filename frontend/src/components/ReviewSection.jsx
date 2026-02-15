@@ -190,7 +190,7 @@ export default function ReviewSection({ routeId }) {
                   </option>
                 ))}
               </select>
-              <span className="review-rating-note">Текущая оценка: {ratingLabel}</span>
+              {/* <span className="review-rating-note">Текущая оценка: {ratingLabel}</span> */}
             </label>
             <label className="full">
               Комментарий

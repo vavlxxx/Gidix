@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMapEvents } from "react-leaflet";
 
-import { createPinIcon } from "./mapPins";
+import { createMarkerIcon } from "./mapPins";
 
 const typeLabels = {
   museum: "Музей",
@@ -26,19 +26,7 @@ function MapClickHandler({ onAddPoint }) {
 export default function MapEditor({ points, onAddPoint }) {
   const center = points.length ? [points[0].lat, points[0].lng] : [54.7388, 55.9721];
   const polyline = useMemo(() => points.map((point) => [point.lat, point.lng]), [points]);
-  const iconCache = useMemo(() => {
-    const icons = {};
-    points.forEach((point) => {
-      const key = point.point_type || "other";
-      if (!icons[key]) {
-        icons[key] = createPinIcon(key);
-      }
-    });
-    if (!icons.other) {
-      icons.other = createPinIcon("other");
-    }
-    return icons;
-  }, [points]);
+  const markerIcon = useMemo(() => createMarkerIcon(), []);
   const [routeLine, setRouteLine] = useState(null);
 
   useEffect(() => {
@@ -102,7 +90,7 @@ export default function MapEditor({ points, onAddPoint }) {
         <Marker
           key={`${point.lat}-${point.lng}-${index}`}
           position={[point.lat, point.lng]}
-          icon={iconCache[point.point_type] || iconCache.other}
+          icon={markerIcon}
         >
           <Tooltip direction="top" offset={[0, -6]} opacity={0.95}>
             <strong>{point.title}</strong>

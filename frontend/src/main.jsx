@@ -2,9 +2,6 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import L from "leaflet";
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
@@ -12,10 +9,12 @@ import { ToastProvider } from "./context/ToastContext";
 import "./styles.css";
 import "leaflet/dist/leaflet.css";
 
+const markerIconUrl = "https://www.ippc.int/static/leaflet/images/marker-icon-2x.png";
+
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow
+  iconRetinaUrl: markerIconUrl,
+  iconUrl: markerIconUrl,
+  shadowUrl: ""
 });
 
 ReactDOM.createRoot(document.getElementById("root")).render(

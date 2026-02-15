@@ -926,23 +926,22 @@ li {
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 24px;
-  background: rgba(7, 17, 32, 0.78);
-  backdrop-filter: blur(6px);
+  padding: 24px 72px;
+  background: rgba(34, 40, 54, 0.86);
+  backdrop-filter: blur(4px);
   z-index: 1600;
 }
 
-.gallery-lightbox-content {
-  position: relative;
+.gallery-lightbox-stage {
   display: grid;
   gap: 12px;
   align-items: center;
   justify-items: center;
 }
 
-.gallery-lightbox-content img {
-  max-width: min(1100px, 92vw);
-  max-height: 78vh;
+.gallery-lightbox-stage img {
+  max-width: min(1200px, 90vw);
+  max-height: 80vh;
   width: auto;
   height: auto;
   border-radius: var(--radius-md);
@@ -952,46 +951,45 @@ li {
 
 .gallery-lightbox-caption {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.78);
-  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .gallery-lightbox-close {
   position: absolute;
-  top: -14px;
-  right: -14px;
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  border: none;
+  top: 64px;
+  right: 18px;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.95);
-  color: var(--ink-900);
-  box-shadow: var(--shadow-soft);
+  background: rgba(16, 22, 34, 0.7);
+  color: #fff;
+  font-size: 18px;
 }
 
 .gallery-lightbox-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.35);
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--ink-900);
-  font-size: 18px;
-  box-shadow: var(--shadow-soft);
+  background: rgba(16, 22, 34, 0.6);
+  color: #fff;
+  font-size: 20px;
 }
 
 .gallery-lightbox-nav--prev {
-  left: -56px;
+  left: 18px;
 }
 
 .gallery-lightbox-nav--next {
-  right: -56px;
+  right: 18px;
 }
 
 .section--reviews {
@@ -1110,10 +1108,11 @@ li {
 
 .route-marker {
   transition: filter 0.2s ease, opacity 0.2s ease;
+  filter: drop-shadow(0 4px 8px rgba(12, 27, 51, 0.35));
 }
 
 .route-marker--active {
-  filter: drop-shadow(0 6px 10px rgba(27, 109, 255, 0.45));
+  filter: drop-shadow(0 8px 14px rgba(27, 109, 255, 0.6));
 }
 
 .map-placeholder {
@@ -2078,69 +2077,8 @@ input[type="checkbox"] {
   border-radius: var(--radius-sm);
 }
 
-.map-pin {
-  width: 32px;
-  height: 32px;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50% 50% 50% 0;
-  border: 2px solid var(--pin-color, #1b6dff);
-  background: #fff;
-  color: var(--pin-color, #1b6dff);
-  box-shadow: 0 8px 18px rgba(12, 27, 51, 0.25);
-  transform: rotate(-45deg);
-}
-
-.map-pin--active {
-  box-shadow: 0 10px 22px rgba(27, 109, 255, 0.4);
-  transform: rotate(-45deg) scale(1.05);
-}
-
-.leaflet-div-icon {
-  background: transparent;
-  border: none;
-}
-
 .leaflet-control-attribution {
   display: none !important;
-}
-
-.map-pin svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
-  display: block;
-  transform: rotate(45deg);
-}
-
-.map-pin--museum {
-  --pin-color: var(--brand-blue);
-}
-
-.map-pin--temple {
-  --pin-color: var(--brand-blue);
-}
-
-.map-pin--monument {
-  --pin-color: var(--brand-blue);
-}
-
-.map-pin--nature {
-  --pin-color: var(--brand-cyan);
-}
-
-.map-pin--park {
-  --pin-color: var(--brand-cyan);
-}
-
-.map-pin--cafe {
-  --pin-color: var(--brand-sun);
-}
-
-.map-pin--other {
-  --pin-color: var(--ink-600);
 }
 
 .leaflet-tooltip {
@@ -2187,13 +2125,13 @@ input[type="checkbox"] {
 
 .toast-stack {
   position: fixed;
-  top: 18px;
+  top: 64px;
   left: 50%;
   transform: translateX(-50%);
   display: grid;
   gap: 10px;
   width: min(520px, calc(100% - 32px));
-  z-index: 2000;
+  z-index:99999999999;
   pointer-events: none;
 }
 
@@ -2396,17 +2334,21 @@ input[type="checkbox"] {
     height: 140px;
   }
 
+  .gallery-lightbox {
+    padding: 16px;
+  }
+
   .gallery-lightbox-nav--prev {
-    left: 10px;
+    left: 12px;
   }
 
   .gallery-lightbox-nav--next {
-    right: 10px;
+    right: 12px;
   }
 
   .gallery-lightbox-close {
-    top: 10px;
-    right: 10px;
+    top: 12px;
+    right: 12px;
   }
 }
 
