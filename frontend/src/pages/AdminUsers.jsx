@@ -27,12 +27,12 @@ export default function AdminUsers() {
   };
 
   useEffect(() => {
-    if (user?.role === "admin") {
+    if (user && ["admin", "superuser"].includes(user.role)) {
       loadUsers();
     }
   }, [user]);
 
-  if (user?.role !== "admin") {
+  if (!user || !["admin", "superuser"].includes(user.role)) {
     return (
       <div className="admin-page">
         <h1>Пользователи</h1>
@@ -130,8 +130,10 @@ export default function AdminUsers() {
           <label>
             Роль
             <select name="role" value={form.role} onChange={handleChange}>
+              <option value="guide">Экскурсовод</option>
               <option value="manager">Менеджер</option>
               <option value="admin">Администратор</option>
+              <option value="superuser">Суперпользователь</option>
             </select>
           </label>
           <button className="button primary" type="submit">Создать</button>
@@ -159,8 +161,10 @@ export default function AdminUsers() {
                     value={item.role}
                     onChange={(event) => handleUpdate(item.id, { role: event.target.value })}
                   >
+                    <option value="guide">Экскурсовод</option>
                     <option value="manager">Менеджер</option>
                     <option value="admin">Администратор</option>
+                    <option value="superuser">Суперпользователь</option>
                   </select>
                 </td>
                 <td>

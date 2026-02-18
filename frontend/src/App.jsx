@@ -5,8 +5,10 @@ import { useAuth } from "./context/AuthContext";
 import AdminLayout from "./pages/AdminLayout";
 import AdminBookings from "./pages/AdminBookings";
 import AdminLogin from "./pages/AdminLogin";
+import AdminPermissions from "./pages/AdminPermissions";
 import AdminRouteForm from "./pages/AdminRouteForm";
 import AdminRoutes from "./pages/AdminRoutes";
+import AdminTariffs from "./pages/AdminTariffs";
 import AdminUsers from "./pages/AdminUsers";
 import Home from "./pages/Home";
 import RouteDetail from "./pages/RouteDetail";
@@ -41,6 +43,8 @@ export default function App() {
         <Route path="routes/new" element={<AdminRouteForm />} />
         <Route path="routes/:id" element={<AdminRouteForm />} />
         <Route path="bookings" element={<AdminBookings />} />
+        <Route path="tariffs" element={<AdminTariffs />} />
+        <Route path="permissions" element={<AdminPermissions />} />
         <Route path="users" element={<AdminUsers />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

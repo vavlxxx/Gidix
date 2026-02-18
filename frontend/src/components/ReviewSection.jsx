@@ -35,21 +35,22 @@ export default function ReviewSection({ routeId }) {
       year: "numeric"
     });
 
-  const reviewableDates = useMemo(() => {
-    const now = new Date();
-    return routeDates
-      .filter((item) => new Date(getDateTimeValue(item)) <= now)
-      .sort((a, b) => new Date(getDateTimeValue(a)) - new Date(getDateTimeValue(b)));
-  }, [routeDates]);
+  const availableDates = useMemo(
+    () =>
+      [...routeDates].sort(
+        (a, b) => new Date(getDateTimeValue(a)) - new Date(getDateTimeValue(b))
+      ),
+    [routeDates]
+  );
 
-  const hasExcursions = reviewableDates.length > 0;
+  const hasDates = availableDates.length > 0;
 
   const getDateValue = (item) => item.starts_at ? item.starts_at.split("T")[0] : item.date;
   const getTimeValue = (item) => item.starts_at ? item.starts_at.slice(11, 16) : "";
 
   const groupedReviewDates = useMemo(() => {
     const groups = {};
-    reviewableDates.forEach((item) => {
+    availableDates.forEach((item) => {
       const dateKey = getDateValue(item);
       const dateValue = new Date(`${dateKey}T00:00:00`);
       const key = dateValue.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
@@ -59,7 +60,7 @@ export default function ReviewSection({ routeId }) {
       groups[key].push(item);
     });
     return Object.entries(groups);
-  }, [reviewableDates]);
+  }, [availableDates]);
 
   const formatSlotDate = (item) => {
     const dateKey = getDateValue(item);
@@ -74,8 +75,8 @@ export default function ReviewSection({ routeId }) {
   };
 
   const selectedDate = useMemo(
-    () => reviewableDates.find((item) => String(item.id) === form.route_date_id),
-    [reviewableDates, form.route_date_id]
+    () => availableDates.find((item) => String(item.id) === form.route_date_id),
+    [availableDates, form.route_date_id]
   );
 
   useEffect(() => {
@@ -88,12 +89,11 @@ export default function ReviewSection({ routeId }) {
       .then(([reviewsData, datesData]) => {
         setReviews(reviewsData);
         setRouteDates(datesData);
-        const now = new Date();
-        const reviewable = datesData.filter(
-          (item) => new Date(getDateTimeValue(item)) <= now
+        const sorted = [...datesData].sort(
+          (a, b) => new Date(getDateTimeValue(a)) - new Date(getDateTimeValue(b))
         );
-        if (reviewable.length > 0) {
-          const latest = reviewable[reviewable.length - 1];
+        if (sorted.length > 0) {
+          const latest = sorted[sorted.length - 1];
           setForm((prev) =>
             prev.route_date_id ? prev : { ...prev, route_date_id: String(latest.id) }
           );
@@ -122,7 +122,7 @@ export default function ReviewSection({ routeId }) {
       notify({
         type: "error",
         title: "Выберите экскурсию",
-        message: "Нужна проведенная экскурсия для отзыва."
+        message: "Нужно выбрать дату экскурсии для отзыва."
       });
       return;
     }
@@ -168,7 +168,7 @@ export default function ReviewSection({ routeId }) {
     <div className="review-section">
       <div className="section-header">
         <h2>Отзывы об экскурсии</h2>
-        <p>Поделитесь впечатлениями, если вы уже прошли экскурсию.</p>
+        <p>Оставьте отзыв в любое время — он появится после проверки администратора.</p>
       </div>
 
       {loading && <p>Загрузка отзывов...</p>}
@@ -208,10 +208,10 @@ export default function ReviewSection({ routeId }) {
 
       <div className="review-form">
         <h3>Оставить отзыв</h3>
-        {!hasExcursions && (
-          <p className="review-empty">Отзыв можно оставить после проведенной экскурсии.</p>
+        {!hasDates && (
+          <p className="review-empty">Пока нет дат для этой экскурсии.</p>
         )}
-        {hasExcursions && (
+        {hasDates && (
           <form className="form-grid" onSubmit={handleSubmit}>
             <label className="full">
               Экскурсия

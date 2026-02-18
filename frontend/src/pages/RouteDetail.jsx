@@ -296,6 +296,28 @@ export default function RouteDetail() {
                 <strong>{route.max_participants} человек</strong>
               </div>
             </div>
+            {route.tariffs && route.tariffs.length > 0 && (
+              <div className="route-tariffs">
+                <h3>Тарифы</h3>
+                <div className="tariff-grid">
+                  {route.tariffs.map((tariff) => {
+                    const priceValue = Math.round(route.price_adult * tariff.multiplier);
+                    return (
+                      <div key={tariff.id} className="tariff-card">
+                        <div>
+                          <strong>{tariff.title}</strong>
+                          {tariff.description && <p>{tariff.description}</p>}
+                        </div>
+                        <div className="tariff-price">
+                          <strong>{priceValue.toLocaleString("ru-RU")} ₽</strong>
+                          <small>× {Number(tariff.multiplier).toFixed(2)}</small>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>

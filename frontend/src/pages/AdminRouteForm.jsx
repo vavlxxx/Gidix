@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 
@@ -62,12 +62,18 @@ export default function AdminRouteForm() {
   const [route, setRoute] = useState(emptyRoute);
   const [points, setPoints] = useState([]);
   const [photos, setPhotos] = useState([]);
+  const [tariffs, setTariffs] = useState([]);
+  const [tariffIds, setTariffIds] = useState([]);
+  const [tariffStatus, setTariffStatus] = useState("idle");
   const [modalOpen, setModalOpen] = useState(false);
   const [draftPoint, setDraftPoint] = useState(defaultPoint);
   const [editingIndex, setEditingIndex] = useState(null);
   const [availableDates, setAvailableDates] = useState([]);
   const [newDateTime, setNewDateTime] = useState("");
   const [dateStatus, setDateStatus] = useState("idle");
+  const [guides, setGuides] = useState([]);
+  const [guideStatus, setGuideStatus] = useState("idle");
+  const [newGuideId, setNewGuideId] = useState("");
   const [status, setStatus] = useState("idle");
   const [reviews, setReviews] = useState([]);
   const [reviewStatus, setReviewStatus] = useState("idle");
@@ -80,6 +86,7 @@ export default function AdminRouteForm() {
       setRoute(emptyRoute);
       setPoints([]);
       setPhotos([]);
+      setTariffIds([]);
       return;
     }
     apiFetch(`/api/routes/${id}`)
@@ -100,6 +107,7 @@ export default function AdminRouteForm() {
           sort_order: index,
           is_cover: photo.is_cover
         })));
+        setTariffIds((data.tariffs || []).map((tariff) => tariff.id));
       })
       .catch((err) => {
         notify({
@@ -109,6 +117,34 @@ export default function AdminRouteForm() {
         });
       });
   }, [id, isEdit]);
+
+  useEffect(() => {
+    setGuideStatus("loading");
+    apiFetch("/api/users/guides?include_inactive=true")
+      .then((data) => setGuides(data))
+      .catch((err) => {
+        notify({
+          type: "error",
+          title: "Не удалось загрузить экскурсоводов",
+          message: err.message
+        });
+      })
+      .finally(() => setGuideStatus("idle"));
+  }, []);
+
+  useEffect(() => {
+    setTariffStatus("loading");
+    apiFetch("/api/tariffs/")
+      .then((data) => setTariffs(data))
+      .catch((err) => {
+        notify({
+          type: "error",
+          title: "Не удалось загрузить тарифы",
+          message: err.message
+        });
+      })
+      .finally(() => setTariffStatus("idle"));
+  }, []);
 
   useEffect(() => {
     if (!isEdit) {
@@ -121,7 +157,7 @@ export default function AdminRouteForm() {
       .catch((err) => {
         notify({
           type: "error",
-          title: "Не удалось загрузить даты",
+          title: "Не удалось загрузить РґР°С‚С‹",
           message: err.message
         });
       })
@@ -230,6 +266,7 @@ export default function AdminRouteForm() {
     price_group: toNumberOrNull(route.price_group),
     max_participants: Number(route.max_participants),
     is_published: publishFlag,
+    tariff_ids: tariffIds,
     points: points.map((point, index) => ({
       title: point.title,
       description: point.description,
@@ -281,26 +318,38 @@ export default function AdminRouteForm() {
 
   const handleAddDate = async () => {
     if (!newDateTime || !isEdit) return;
+    if (!newGuideId) {
+      notify({
+        type: "error",
+        title: "Выберите экскурсовода",
+        message: "Экскурсовод обязателен для новой экскурсии."
+      });
+      return;
+    }
     setDateStatus("saving");
     try {
       const dateValue = newDateTime.split("T")[0];
       const created = await apiFetch(`/api/routes/${id}/dates`, {
         method: "POST",
-        body: JSON.stringify({ date: dateValue, starts_at: newDateTime })
+        body: JSON.stringify({
+          date: dateValue,
+          starts_at: newDateTime,
+          guide_id: Number(newGuideId)
+        })
       });
       setAvailableDates((prev) => [...prev, created].sort((a, b) => a.date.localeCompare(b.date)));
       setNewDateTime("");
       setDateStatus("idle");
       notify({
         type: "success",
-        title: "Дата добавлена",
+        title: "Р”Р°С‚Р° добавлена",
         message: formatDateTime(created)
       });
     } catch (err) {
       setDateStatus("error");
       notify({
         type: "error",
-        title: "Ошибка добавления даты",
+        title: "Ошибка добавления РґР°С‚С‹",
         message: err.message
       });
     }
@@ -318,16 +367,48 @@ export default function AdminRouteForm() {
       setDateStatus("idle");
       notify({
         type: "success",
-        title: "Дата обновлена",
-        message: nextActive ? "Дата открыта для бронирования" : "Дата скрыта"
+        title: "Р”Р°С‚Р° обновлена",
+        message: nextActive ? "Р”Р°С‚Р° открыта для бронирования" : "Р”Р°С‚Р° скрыта"
       });
     } catch (err) {
       setDateStatus("error");
       notify({
         type: "error",
-        title: "Ошибка обновления даты",
+        title: "Ошибка обновления РґР°С‚С‹",
         message: err.message
       });
+    }
+  };
+
+  const handleGuideChange = async (dateId, guideId) => {
+    if (!isEdit) return;
+    if (!guideId) {
+      notify({
+        type: "error",
+        title: "Выберите экскурсовода",
+        message: "Экскурсовод обязателен для экскурсии."
+      });
+      return;
+    }
+    setDateStatus("saving");
+    try {
+      const updated = await apiFetch(`/api/routes/${id}/dates/${dateId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ guide_id: Number(guideId) })
+      });
+      setAvailableDates((prev) => prev.map((item) => (item.id === dateId ? updated : item)));
+      notify({
+        type: "success",
+        title: "Экскурсовод назначен"
+      });
+    } catch (err) {
+      notify({
+        type: "error",
+        title: "Не удалось назначить экскурсовода",
+        message: err.message
+      });
+    } finally {
+      setDateStatus("idle");
     }
   };
 
@@ -390,13 +471,13 @@ export default function AdminRouteForm() {
       setDateStatus("idle");
       notify({
         type: "success",
-        title: "Дата удалена"
+        title: "Р”Р°С‚Р° удалена"
       });
     } catch (err) {
       setDateStatus("error");
       notify({
         type: "error",
-        title: "Ошибка удаления даты",
+        title: "Ошибка удаления РґР°С‚С‹",
         message: err.message
       });
     }
@@ -429,6 +510,12 @@ export default function AdminRouteForm() {
   const closeRescheduleModal = () => {
     setRescheduleTarget(null);
     setRescheduleValue("");
+  };
+
+  const toggleTariff = (tariffId) => {
+    setTariffIds((prev) =>
+      prev.includes(tariffId) ? prev.filter((id) => id !== tariffId) : [...prev, tariffId]
+    );
   };
 
   const formatDateTime = (item) => {
@@ -464,7 +551,7 @@ export default function AdminRouteForm() {
       <div className="route-editor">
         <div className="route-editor-map">
           <div className="map-toolbar">
-            <strong>Интерактивная карта</strong>
+            <strong>????????????? ?????</strong>
             <span>Кликните по карте, чтобы добавить точку маршрута.</span>
           </div>
           <MapEditor points={points} onAddPoint={openPointModal} />
@@ -485,7 +572,7 @@ export default function AdminRouteForm() {
             </div>
           )}
             <label>
-              Длительность (ч)
+              Длительность (С‡)
               <input
                 type="number"
                 name="duration_hours"
@@ -543,9 +630,44 @@ export default function AdminRouteForm() {
           </section>
 
           <section className="editor-section">
-            <h3>Доступные даты</h3>
+            <h3>Тарифы</h3>
+            {tariffStatus === "loading" && <p>Загрузка тарифов...</p>}
+            {tariffStatus !== "loading" && tariffs.length === 0 && (
+              <p>Тарифов пока нет. Добавьте их в разделе "Тарифы".</p>
+            )}
+            <div className="tariff-picker">
+              {tariffs.map((tariff) => {
+                const isActive = tariffIds.includes(tariff.id);
+                const basePrice = Number(route.price_adult || 0);
+                const priceValue = basePrice ? Math.round(basePrice * tariff.multiplier) : 0;
+                return (
+                  <label
+                    key={tariff.id}
+                    className={`tariff-option${isActive ? " active" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isActive}
+                      onChange={() => toggleTariff(tariff.id)}
+                    />
+                    <div>
+                      <strong>{tariff.title}</strong>
+                      {tariff.description && <span>{tariff.description}</span>}
+                      <small>× {Number(tariff.multiplier).toFixed(2)}</small>
+                      {basePrice > 0 && (
+                        <small>Цена: {priceValue.toLocaleString("ru-RU")} ₽</small>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="editor-section">
+            <h3>Доступные РґР°С‚С‹</h3>
             {!isEdit && (
-              <p>Сначала сохраните маршрут, чтобы добавить даты экскурсий.</p>
+              <p>Сначала сохраните маршрут, чтобы добавить РґР°С‚С‹ экскурсий.</p>
             )}
             {isEdit && (
               <div className="date-manager">
@@ -555,18 +677,34 @@ export default function AdminRouteForm() {
                     value={newDateTime}
                     onChange={(event) => setNewDateTime(event.target.value)}
                   />
+                  <select
+                    value={newGuideId}
+                    onChange={(event) => setNewGuideId(event.target.value)}
+                    disabled={guideStatus === "loading" || guides.length === 0}
+                  >
+                    <option value="">Выберите экскурсовода</option>
+                    {guides.map((guide) => (
+                      <option key={guide.id} value={guide.id}>
+                        {guide.full_name}
+                      </option>
+                    ))}
+                  </select>
                   <button
                     className="button primary"
                     type="button"
                     onClick={handleAddDate}
-                    disabled={!newDateTime || dateStatus === "saving"}
+                    disabled={!newDateTime || !newGuideId || dateStatus === "saving"}
                   >
                     Добавить дату и время
                   </button>
                 </div>
-                {dateStatus === "loading" && <p>Загрузка дат...</p>}
+                {dateStatus === "loading" && <p>Загрузка РґР°С‚...</p>}
+                {guideStatus === "loading" && <p>Загрузка экскурсоводов...</p>}
+                {guideStatus !== "loading" && guides.length === 0 && (
+                  <p>Нет доступных экскурсоводов. Добавьте их в разделе "Сотрудники".</p>
+                )}
                 {availableDates.length === 0 && dateStatus !== "loading" && (
-                  <p>Список пуст. Добавьте даты, чтобы они появились в форме бронирования.</p>
+                  <p>Список пуст. Добавьте РґР°С‚С‹, чтобы они появились в форме бронирования.</p>
                 )}
                 <div className="date-manager-list">
                   {availableDates.map((item) => (
@@ -581,6 +719,21 @@ export default function AdminRouteForm() {
                           ) : (
                             <span className="date-tag date-tag--inactive">Скрыта</span>
                           )}
+                        </div>
+                        <div className="date-manager-guide">
+                          <span>Экскурсовод</span>
+                          <select
+                            value={item.guide_id ?? ""}
+                            onChange={(event) => handleGuideChange(item.id, event.target.value)}
+                            disabled={guideStatus === "loading" || guides.length === 0 || dateStatus === "saving"}
+                          >
+                            <option value="">Назначить экскурсовода</option>
+                            {guides.map((guide) => (
+                              <option key={guide.id} value={guide.id}>
+                                {guide.full_name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
                       <div className="date-manager-actions">
@@ -655,7 +808,7 @@ export default function AdminRouteForm() {
                             key={value}
                             className={`review-star${review.rating >= value ? " is-active" : ""}`}
                           >
-                            ★
+                            в…
                           </span>
                         ))}
                       </div>
@@ -687,14 +840,14 @@ export default function AdminRouteForm() {
                 <div key={`${point.title}-${index}`} className="point-item">
                   <div>
                     <strong>{index + 1}. {point.title}</strong>
-                    <span>{pointTypeLabels[point.point_type] || point.point_type} · {point.visit_minutes} мин.</span>
+                    <span>{pointTypeLabels[point.point_type] || point.point_type} В· {point.visit_minutes} мин.</span>
                   </div>
                   <div className="point-actions">
                     <button className="button ghost" type="button" onClick={() => handleMovePoint(index, -1)}>
-                      ↑
+                      в†‘
                     </button>
                     <button className="button ghost" type="button" onClick={() => handleMovePoint(index, 1)}>
-                      ↓
+                      в†“
                     </button>
                     <button className="button ghost" type="button" onClick={() => handleEditPoint(index)}>
                       Редактировать
@@ -770,7 +923,7 @@ export default function AdminRouteForm() {
             </div>
             <form onSubmit={handleRescheduleSubmit}>
               <label>
-                Новая дата и время
+                Новая РґР°С‚Р° и время
                 <input
                   type="datetime-local"
                   value={rescheduleValue}
@@ -793,3 +946,6 @@ export default function AdminRouteForm() {
     </div>
   );
 }
+
+
+

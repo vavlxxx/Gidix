@@ -38,6 +38,69 @@ class UserUpdate(BaseModel):
 class UserOut(UserBase):
     id: int
     created_at: datetime
+    rule_ids: list[int] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+
+class RuleBase(BaseModel):
+    code: str
+    title: str
+    description: Optional[str] = None
+    error_message: str
+    associated_role: Optional[UserRole] = None
+
+
+class RuleCreate(RuleBase):
+    pass
+
+
+class RuleUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    error_message: Optional[str] = None
+    associated_role: Optional[UserRole] = None
+
+
+class RuleOut(RuleBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class UserRulesUpdate(BaseModel):
+    rule_ids: list[int] = Field(default_factory=list)
+
+
+class TariffBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    multiplier: float = Field(gt=0)
+
+
+class TariffCreate(TariffBase):
+    pass
+
+
+class TariffUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    multiplier: Optional[float] = Field(default=None, gt=0)
+
+
+class TariffOut(TariffBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class GuideOut(BaseModel):
+    id: int
+    full_name: str
 
     model_config = {"from_attributes": True}
 
@@ -92,11 +155,13 @@ class RouteBase(BaseModel):
 class RouteCreate(RouteBase):
     points: list[PointCreate] = Field(default_factory=list)
     photos: list[PhotoCreate] = Field(default_factory=list)
+    tariff_ids: list[int] = Field(default_factory=list)
 
 
 class RouteUpdate(RouteBase):
     points: list[PointCreate] = Field(default_factory=list)
     photos: list[PhotoCreate] = Field(default_factory=list)
+    tariff_ids: list[int] = Field(default_factory=list)
 
 
 class RouteOut(RouteBase):
@@ -107,6 +172,7 @@ class RouteOut(RouteBase):
     photos: list[PhotoOut]
     rating_avg: Optional[float] = None
     rating_count: int = 0
+    tariffs: list[TariffOut] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
@@ -129,16 +195,18 @@ class RouteListItem(BaseModel):
 class RouteDateBase(BaseModel):
     date: date
     starts_at: Optional[datetime] = None
+    guide_id: Optional[int] = None
 
 
 class RouteDateCreate(RouteDateBase):
-    pass
+    guide_id: int
 
 
 class RouteDateUpdate(BaseModel):
     is_active: Optional[bool] = None
     date: Optional[date] = None
     starts_at: Optional[datetime] = None
+    guide_id: Optional[int] = None
 
 
 class RouteDateOut(RouteDateBase):
@@ -147,6 +215,7 @@ class RouteDateOut(RouteDateBase):
     is_active: bool
     is_booked: bool
     created_at: datetime
+    guide_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

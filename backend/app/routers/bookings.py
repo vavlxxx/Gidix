@@ -1,13 +1,14 @@
-from datetime import date, datetime, time, timedelta
+﻿from datetime import date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.audit import log_action
-from app.auth import require_roles
+from app.auth import require_rules
 from app.db import get_db
 from app.models import Booking, BookingStatus, Route, RouteDate
+from app.permissions import BOOKING_MANAGE
 from app.schemas import BookingCreate, BookingDetail, BookingListItem, BookingOut, BookingUpdate
 from app.utils import generate_booking_code
 
@@ -37,10 +38,10 @@ def _booked_participants(db: Session, route_id: int, desired_date: date, exclude
 @router.post("/", response_model=BookingOut)
 def create_booking(payload: BookingCreate, db: Session = Depends(get_db)) -> BookingOut:
     if not payload.consent:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Требуется согласие на обработку данных")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="РўСЂРµР±СѓРµС‚СЃСЏ СЃРѕРіР»Р°СЃРёРµ РЅР° РѕР±СЂР°Р±РѕС‚РєСѓ РґР°РЅРЅС‹С…")
     route = db.query(Route).filter(Route.id == payload.route_id, Route.is_published.is_(True)).first()
     if not route:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="РњР°СЂС€СЂСѓС‚ РЅРµ РЅР°Р№РґРµРЅ")
     route_date = (
         db.query(RouteDate)
         .filter(
@@ -51,26 +52,31 @@ def create_booking(payload: BookingCreate, db: Session = Depends(get_db)) -> Boo
         .first()
     )
     if not route_date:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Выберите дату из доступных")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Р’С‹Р±РµСЂРёС‚Рµ РґР°С‚Сѓ РёР· РґРѕСЃС‚СѓРїРЅС‹С…")
+    if not route_date.guide_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="На эту дату еще не назначен экскурсовод",
+        )
     starts_at = _starts_at_value(route_date)
     if starts_at < datetime.now() + timedelta(hours=24):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Бронь доступна не позднее чем за 24 часа до начала экскурсии",
+            detail="Р‘СЂРѕРЅСЊ РґРѕСЃС‚СѓРїРЅР° РЅРµ РїРѕР·РґРЅРµРµ С‡РµРј Р·Р° 24 С‡Р°СЃР° РґРѕ РЅР°С‡Р°Р»Р° СЌРєСЃРєСѓСЂСЃРёРё",
         )
     booked_count = _booked_participants(db, payload.route_id, payload.desired_date)
     available = route.max_participants - booked_count
     if available <= 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Дата полностью занята")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Р”Р°С‚Р° РїРѕР»РЅРѕСЃС‚СЊСЋ Р·Р°РЅСЏС‚Р°")
     if payload.participants > available:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Недостаточно свободных мест на выбранную дату",
+            detail="РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ СЃРІРѕР±РѕРґРЅС‹С… РјРµСЃС‚ РЅР° РІС‹Р±СЂР°РЅРЅСѓСЋ РґР°С‚Сѓ",
         )
     if payload.participants > route.max_participants:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Количество участников превышает вместимость группы",
+            detail="РљРѕР»РёС‡РµСЃС‚РІРѕ СѓС‡Р°СЃС‚РЅРёРєРѕРІ РїСЂРµРІС‹С€Р°РµС‚ РІРјРµСЃС‚РёРјРѕСЃС‚СЊ РіСЂСѓРїРїС‹",
         )
 
     booking = Booking(
@@ -99,7 +105,7 @@ def list_bookings(
     date_from: date | None = None,
     date_to: date | None = None,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("manager", "admin")),
+    user=Depends(require_rules(BOOKING_MANAGE)),
 ) -> list[BookingListItem]:
     query = db.query(Booking, Route.title).join(Route, Booking.route_id == Route.id)
     if status:
@@ -140,7 +146,7 @@ def list_bookings(
 def get_booking(
     booking_id: int,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("manager", "admin")),
+    user=Depends(require_rules(BOOKING_MANAGE)),
 ) -> BookingDetail:
     row = (
         db.query(Booking, Route.title)
@@ -149,7 +155,7 @@ def get_booking(
         .first()
     )
     if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Р—Р°СЏРІРєР° РЅРµ РЅР°Р№РґРµРЅР°")
     booking, route_title = row
     data = BookingOut.model_validate(booking)
     return BookingDetail(**data.model_dump(), route_title=route_title)
@@ -160,11 +166,11 @@ def update_booking(
     booking_id: int,
     payload: BookingUpdate,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("manager", "admin")),
+    user=Depends(require_rules(BOOKING_MANAGE)),
 ) -> BookingOut:
     booking = db.query(Booking).filter(Booking.id == booking_id).first()
     if not booking:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Р—Р°СЏРІРєР° РЅРµ РЅР°Р№РґРµРЅР°")
     if payload.status:
         previous_status = booking.status
         next_status = payload.status
@@ -181,16 +187,16 @@ def update_booking(
             if not route_date:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Дата больше недоступна для бронирования",
+                    detail="Р”Р°С‚Р° Р±РѕР»СЊС€Рµ РЅРµРґРѕСЃС‚СѓРїРЅР° РґР»СЏ Р±СЂРѕРЅРёСЂРѕРІР°РЅРёСЏ",
                 )
             route = db.query(Route).filter(Route.id == booking.route_id).first()
             if not route:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="РњР°СЂС€СЂСѓС‚ РЅРµ РЅР°Р№РґРµРЅ")
             booked_count = _booked_participants(db, booking.route_id, booking.desired_date)
             if booked_count + booking.participants > route.max_participants:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Недостаточно свободных мест на выбранную дату",
+                    detail="РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ СЃРІРѕР±РѕРґРЅС‹С… РјРµСЃС‚ РЅР° РІС‹Р±СЂР°РЅРЅСѓСЋ РґР°С‚Сѓ",
                 )
             route_date.is_booked = booked_count + booking.participants >= route.max_participants
         if previous_status in BOOKED_STATUSES and next_status not in BOOKED_STATUSES:
@@ -220,3 +226,4 @@ def update_booking(
     db.commit()
     db.refresh(booking)
     return BookingOut.model_validate(booking)
+

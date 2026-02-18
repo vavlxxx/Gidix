@@ -3,8 +3,9 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
-from app.auth import require_roles
+from app.auth import require_rules
 from app.core.config import settings
+from app.permissions import ROUTE_MANAGE
 
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
@@ -12,7 +13,7 @@ router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 @router.post("/")
 def upload_file(
     file: UploadFile = File(...),
-    user=Depends(require_roles("manager", "admin")),
+    user=Depends(require_rules(ROUTE_MANAGE)),
 ) -> dict:
     if not file.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Файл не выбран")

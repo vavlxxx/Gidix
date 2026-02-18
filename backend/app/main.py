@@ -8,8 +8,8 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.db import SessionLocal, engine
-from app.models import Base, Booking
-from app.routers import auth, bookings, routes, uploads, users
+from app.models import Base, Booking, User
+from app.routers import auth, bookings, routes, rules, tariffs, uploads, users
 from app.seed import seed_if_needed
 
 
@@ -43,6 +43,8 @@ app.include_router(auth.router)
 app.include_router(routes.router)
 app.include_router(bookings.router)
 app.include_router(users.router)
+app.include_router(rules.router)
+app.include_router(tariffs.router)
 app.include_router(uploads.router)
 
 app.mount("/media", StaticFiles(directory=settings.media_dir), name="media")
@@ -64,6 +66,7 @@ def on_startup() -> None:
         if engine.dialect.name == "postgresql":
             conn.execute(text("ALTER TABLE route_dates ADD COLUMN IF NOT EXISTS starts_at timestamp"))
             conn.execute(text("UPDATE route_dates SET starts_at = date::timestamp WHERE starts_at IS NULL"))
+            conn.execute(text("ALTER TABLE route_dates ADD COLUMN IF NOT EXISTS guide_id integer"))
             conn.execute(text("ALTER TABLE reviews ADD COLUMN IF NOT EXISTS route_date_id integer"))
             conn.execute(text("ALTER TABLE reviews ADD COLUMN IF NOT EXISTS is_approved boolean"))
             conn.execute(
@@ -81,6 +84,7 @@ def on_startup() -> None:
         else:
             conn.execute(text("ALTER TABLE route_dates ADD COLUMN IF NOT EXISTS starts_at DATETIME"))
             conn.execute(text("UPDATE route_dates SET starts_at = date WHERE starts_at IS NULL"))
+            conn.execute(text("ALTER TABLE route_dates ADD COLUMN IF NOT EXISTS guide_id INTEGER"))
             conn.execute(text("ALTER TABLE reviews ADD COLUMN IF NOT EXISTS route_date_id INTEGER"))
             conn.execute(text("ALTER TABLE reviews ADD COLUMN IF NOT EXISTS is_approved INTEGER"))
             conn.execute(
@@ -101,6 +105,9 @@ def on_startup() -> None:
         if engine.dialect.name == "postgresql":
             enum_name = Booking.__table__.c.status.type.name
             conn.execute(text(f"ALTER TYPE {enum_name} ADD VALUE IF NOT EXISTS 'completed'"))
+            role_enum = User.__table__.c.role.type.name
+            conn.execute(text(f"ALTER TYPE {role_enum} ADD VALUE IF NOT EXISTS 'superuser'"))
+            conn.execute(text(f"ALTER TYPE {role_enum} ADD VALUE IF NOT EXISTS 'guide'"))
     with SessionLocal() as db:
         seed_if_needed(db)
 

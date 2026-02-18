@@ -10,8 +10,10 @@ Base = declarative_base()
 
 
 class UserRole(str, enum.Enum):
+    superuser = "superuser"
     manager = "manager"
     admin = "admin"
+    guide = "guide"
 
 
 class BookingStatus(str, enum.Enum):
@@ -44,6 +46,62 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     logs = relationship("AuditLog", back_populates="user")
+    guided_dates = relationship("RouteDate", back_populates="guide", foreign_keys="RouteDate.guide_id")
+    rules = relationship("Rule", secondary="user_rules", back_populates="users")
+
+    @property
+    def rule_ids(self) -> list[int]:
+        return [rule.id for rule in self.rules]
+
+
+class Rule(Base):
+    __tablename__ = "rules"
+
+    id = Column(Integer, primary_key=True)
+    associated_role = Column(SqlEnum(UserRole), nullable=True)
+    code = Column(String(120), unique=True, nullable=False)
+    title = Column(String(200), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+    error_message = Column(String(200), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    users = relationship("User", secondary="user_rules", back_populates="rules")
+
+
+class UserRule(Base):
+    __tablename__ = "user_rules"
+    __table_args__ = (UniqueConstraint("user_id", "rule_id", name="user_assosiated_rule_unique"),)
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    rule_id = Column(Integer, ForeignKey("rules.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Tariff(Base):
+    __tablename__ = "tariffs"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String(200), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+    multiplier = Column(Float, nullable=False, default=1.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    routes = relationship("Route", secondary="route_tariffs", back_populates="tariffs")
+
+
+class RouteTariff(Base):
+    __tablename__ = "route_tariffs"
+    __table_args__ = (UniqueConstraint("route_id", "tariff_id", name="route_tariff_unique"),)
+
+    id = Column(Integer, primary_key=True)
+    route_id = Column(Integer, ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    tariff_id = Column(Integer, ForeignKey("tariffs.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class Route(Base):
@@ -70,6 +128,7 @@ class Route(Base):
         order_by="RouteDate.date",
     )
     bookings = relationship("Booking", back_populates="route")
+    tariffs = relationship("Tariff", secondary="route_tariffs", back_populates="routes")
 
 
 class RouteDate(Base):
@@ -78,6 +137,7 @@ class RouteDate(Base):
 
     id = Column(Integer, primary_key=True)
     route_id = Column(Integer, ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    guide_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     date = Column(Date, nullable=False)
     starts_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
@@ -86,6 +146,11 @@ class RouteDate(Base):
 
     route = relationship("Route", back_populates="available_dates")
     reviews = relationship("Review", back_populates="route_date", cascade="all, delete-orphan")
+    guide = relationship("User", back_populates="guided_dates", foreign_keys=[guide_id])
+
+    @property
+    def guide_name(self) -> str | None:
+        return self.guide.full_name if self.guide else None
 
 
 class Point(Base):

@@ -4,30 +4,138 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import get_password_hash
-from app.models import Booking, BookingStatus, Point, PointType, Photo, Route, RouteDate, User, UserRole
+from app.models import Booking, BookingStatus, Point, PointType, Photo, Route, RouteDate, Rule, Tariff, User, UserRole
+from app.permissions import (
+    BOOKING_MANAGE,
+    REVIEWS_MODERATE,
+    ROUTE_MANAGE,
+    RULES_MANAGE,
+    TARIFFS_MANAGE,
+    USERS_MANAGE,
+    sync_user_rules,
+)
 from app.utils import generate_booking_code
 
 
 def seed_if_needed(db: Session) -> None:
-    if db.query(User).first():
-        return
+    has_users = db.query(User).first() is not None
 
-    admin = User(
-        full_name="Администратор",
-        email=settings.default_admin_email,
-        hashed_password=get_password_hash(settings.default_admin_password),
-        role=UserRole.admin,
-        is_active=True,
-    )
-    manager = User(
-        full_name="Менеджер",
-        email="manager@example.com",
-        hashed_password=get_password_hash("manager123"),
-        role=UserRole.manager,
-        is_active=True,
-    )
-    db.add_all([admin, manager])
-    db.flush()
+    if not has_users:
+        superuser = User(
+            full_name="Суперпользователь",
+            email="superuser@example.com",
+            hashed_password=get_password_hash("superuser123"),
+            role=UserRole.superuser,
+            is_active=True,
+        )
+        admin = User(
+            full_name="Администратор",
+            email=settings.default_admin_email,
+            hashed_password=get_password_hash(settings.default_admin_password),
+            role=UserRole.admin,
+            is_active=True,
+        )
+        manager = User(
+            full_name="Менеджер",
+            email="manager@example.com",
+            hashed_password=get_password_hash("manager123"),
+            role=UserRole.manager,
+            is_active=True,
+        )
+        guide1 = User(
+            full_name="РђР»РёСЃР° Р’РµСЂРЅРµСЂ",
+            email="guide1@example.com",
+            hashed_password=get_password_hash("guide123"),
+            role=UserRole.guide,
+            is_active=True,
+        )
+        guide2 = User(
+            full_name="РўРёРјСѓСЂ РҐР°С„РёР·РѕРІ",
+            email="guide2@example.com",
+            hashed_password=get_password_hash("guide123"),
+            role=UserRole.guide,
+            is_active=True,
+        )
+        db.add_all([superuser, admin, manager, guide1, guide2])
+        db.flush()
+
+    existing_codes = {code for (code,) in db.query(Rule.code).all()}
+    rules = [
+        Rule(
+            associated_role=UserRole.manager,
+            code=ROUTE_MANAGE,
+            title="Управление маршрутами",
+            description="Создание и редактирование маршрутов, дат и фотографий.",
+            error_message="Недостаточно прав для управления маршрутами",
+        ),
+        Rule(
+            associated_role=UserRole.manager,
+            code=BOOKING_MANAGE,
+            title="Управление заявками",
+            description="Просмотр и обработка заявок клиентов.",
+            error_message="Недостаточно прав для управления заявками",
+        ),
+        Rule(
+            associated_role=UserRole.manager,
+            code=REVIEWS_MODERATE,
+            title="Модерация отзывов",
+            description="Публикация и скрытие отзывов после экскурсии.",
+            error_message="Недостаточно прав для модерации отзывов",
+        ),
+        Rule(
+            associated_role=UserRole.manager,
+            code=TARIFFS_MANAGE,
+            title="Управление тарифами",
+            description="Создание и редактирование тарифов для экскурсий.",
+            error_message="Недостаточно прав для управления тарифами",
+        ),
+        Rule(
+            associated_role=UserRole.admin,
+            code=USERS_MANAGE,
+            title="Управление пользователями",
+            description="Создание сотрудников и изменение их ролей.",
+            error_message="Недостаточно прав для управления пользователями",
+        ),
+        Rule(
+            associated_role=UserRole.admin,
+            code=RULES_MANAGE,
+            title="Управление правами",
+            description="Настройка правил доступа и выдача прав пользователям.",
+            error_message="Недостаточно прав для управления правами",
+        ),
+    ]
+    pending_rules = [rule for rule in rules if rule.code not in existing_codes]
+    if pending_rules:
+        db.add_all(pending_rules)
+        db.flush()
+    for user in db.query(User).all():
+        sync_user_rules(db, user)
+
+    tariffs = db.query(Tariff).all()
+    if not tariffs:
+        tariffs = [
+            Tariff(
+                title="Семейный тариф",
+                description="Скидка для семейных посещений.",
+                multiplier=0.9,
+            ),
+            Tariff(
+                title="Студенческий тариф",
+                description="Скидка при предъявлении студенческого.",
+                multiplier=0.85,
+            ),
+            Tariff(
+                title="Премиум",
+                description="Персональное сопровождение и дополнительное время.",
+                multiplier=1.3,
+            ),
+        ]
+        db.add_all(tariffs)
+        db.flush()
+
+    if has_users:
+        db.commit()
+        return
 
     route1 = Route(
         title="Исторический центр Уфы",
@@ -83,6 +191,7 @@ def seed_if_needed(db: Session) -> None:
         Photo(file_path="/media/sample-1.svg", sort_order=0, is_cover=True),
         Photo(file_path="/media/sample-2.svg", sort_order=1, is_cover=False),
     ]
+    route1.tariffs = [tariffs[0], tariffs[1]]
 
     route2 = Route(
         title="Парки и панорамы Уфы",
@@ -128,19 +237,55 @@ def seed_if_needed(db: Session) -> None:
     route2.photos = [
         Photo(file_path="/media/sample-3.svg", sort_order=0, is_cover=True),
     ]
+    route2.tariffs = [tariffs[0], tariffs[2]]
 
     db.add_all([route1, route2])
     db.flush()
 
     today = date.today()
     route_dates = [
-        RouteDate(route_id=route1.id, date=today + timedelta(days=5), starts_at=datetime.combine(today + timedelta(days=5), datetime.min.time())),
-        RouteDate(route_id=route1.id, date=today + timedelta(days=7), starts_at=datetime.combine(today + timedelta(days=7), datetime.min.time())),
-        RouteDate(route_id=route1.id, date=today + timedelta(days=9), starts_at=datetime.combine(today + timedelta(days=9), datetime.min.time())),
-        RouteDate(route_id=route1.id, date=today + timedelta(days=14), starts_at=datetime.combine(today + timedelta(days=14), datetime.min.time())),
-        RouteDate(route_id=route2.id, date=today + timedelta(days=10), starts_at=datetime.combine(today + timedelta(days=10), datetime.min.time())),
-        RouteDate(route_id=route2.id, date=today + timedelta(days=12), starts_at=datetime.combine(today + timedelta(days=12), datetime.min.time())),
-        RouteDate(route_id=route2.id, date=today + timedelta(days=16), starts_at=datetime.combine(today + timedelta(days=16), datetime.min.time())),
+        RouteDate(
+            route_id=route1.id,
+            guide_id=guide1.id,
+            date=today + timedelta(days=5),
+            starts_at=datetime.combine(today + timedelta(days=5), datetime.min.time()),
+        ),
+        RouteDate(
+            route_id=route1.id,
+            guide_id=guide2.id,
+            date=today + timedelta(days=7),
+            starts_at=datetime.combine(today + timedelta(days=7), datetime.min.time()),
+        ),
+        RouteDate(
+            route_id=route1.id,
+            guide_id=guide1.id,
+            date=today + timedelta(days=9),
+            starts_at=datetime.combine(today + timedelta(days=9), datetime.min.time()),
+        ),
+        RouteDate(
+            route_id=route1.id,
+            guide_id=guide2.id,
+            date=today + timedelta(days=14),
+            starts_at=datetime.combine(today + timedelta(days=14), datetime.min.time()),
+        ),
+        RouteDate(
+            route_id=route2.id,
+            guide_id=guide1.id,
+            date=today + timedelta(days=10),
+            starts_at=datetime.combine(today + timedelta(days=10), datetime.min.time()),
+        ),
+        RouteDate(
+            route_id=route2.id,
+            guide_id=guide2.id,
+            date=today + timedelta(days=12),
+            starts_at=datetime.combine(today + timedelta(days=12), datetime.min.time()),
+        ),
+        RouteDate(
+            route_id=route2.id,
+            guide_id=guide1.id,
+            date=today + timedelta(days=16),
+            starts_at=datetime.combine(today + timedelta(days=16), datetime.min.time()),
+        ),
     ]
     db.add_all(route_dates)
     db.flush()

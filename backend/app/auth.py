@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.security import ALGORITHM
 from app.db import get_db
-from app.models import User
+from app.models import Rule, User, UserRole, UserRule
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -51,8 +51,37 @@ def get_optional_user(token: str | None = Depends(oauth2_optional), db: Session 
 
 def require_roles(*roles: str) -> Callable:
     def dependency(user: User = Depends(get_current_user)) -> User:
+        if user.role == UserRole.superuser:
+            return user
         if user.role.value not in roles:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав")
         return user
+
+    return dependency
+
+
+def require_rules(*codes: str) -> Callable:
+    def dependency(
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        if user.role == UserRole.superuser:
+            return user
+        if not codes:
+            return user
+        has_rule = (
+            db.query(Rule)
+            .join(UserRule, Rule.id == UserRule.rule_id)
+            .filter(UserRule.user_id == user.id, Rule.code.in_(codes))
+            .first()
+        )
+        if has_rule:
+            return user
+        detail = "Недостаточно прав"
+        if len(codes) == 1:
+            rule = db.query(Rule).filter(Rule.code == codes[0]).first()
+            if rule and rule.error_message:
+                detail = rule.error_message
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
     return dependency

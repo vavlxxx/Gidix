@@ -1,13 +1,14 @@
-from datetime import date, datetime, time, timedelta
+﻿from datetime import date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.audit import log_action
-from app.auth import get_optional_user, require_roles
+from app.auth import get_optional_user, require_rules
 from app.db import get_db
-from app.models import Booking, BookingStatus, Photo, Point, Review, Route, RouteDate
+from app.models import Booking, BookingStatus, Photo, Point, Review, Route, RouteDate, Tariff, User, UserRole
+from app.permissions import REVIEWS_MODERATE, ROUTE_MANAGE, user_has_rule
 from app.schemas import (
     ReviewCreate,
     ReviewOut,
@@ -41,7 +42,7 @@ def _ensure_minimum_notice(starts_at: datetime) -> None:
     if starts_at < datetime.now() + timedelta(hours=24):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Добавлять дату можно минимум за сутки до начала экскурсии",
+            detail="Р”РѕР±Р°РІР»СЏС‚СЊ РґР°С‚Сѓ РјРѕР¶РЅРѕ РјРёРЅРёРјСѓРј Р·Р° СЃСѓС‚РєРё РґРѕ РЅР°С‡Р°Р»Р° СЌРєСЃРєСѓСЂСЃРёРё",
         )
 
 
@@ -61,8 +62,39 @@ def _ensure_no_overlap(
         if starts_at < existing_end and new_end > existing_start:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Экскурсия пересекается по времени с другой датой",
+                detail="Р­РєСЃРєСѓСЂСЃРёСЏ РїРµСЂРµСЃРµРєР°РµС‚СЃСЏ РїРѕ РІСЂРµРјРµРЅРё СЃ РґСЂСѓРіРѕР№ РґР°С‚РѕР№",
             )
+
+
+def _get_guide(db: Session, guide_id: int) -> User:
+    guide = (
+        db.query(User)
+        .filter(
+            User.id == guide_id,
+            User.role == UserRole.guide,
+            User.is_active.is_(True),
+        )
+        .first()
+    )
+    if not guide:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Экскурсовод не найден или неактивен",
+        )
+    return guide
+
+
+def _load_tariffs(db: Session, tariff_ids: list[int]) -> list[Tariff]:
+    if not tariff_ids:
+        return []
+    unique_ids = list({int(item) for item in tariff_ids})
+    tariffs = db.query(Tariff).filter(Tariff.id.in_(unique_ids)).all()
+    if len(tariffs) != len(unique_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Некоторые тарифы не найдены",
+        )
+    return tariffs
 
 
 @router.get("/", response_model=list[RouteListItem])
@@ -89,7 +121,12 @@ def list_routes(
     )
     if include_unpublished:
         if not user:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется авторизация")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Требуется авторизация",
+            )
+        if not user_has_rule(db, user, ROUTE_MANAGE):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав")
     else:
         query = query.filter(Route.is_published.is_(True))
     if search:
@@ -120,7 +157,7 @@ def get_route(
 ) -> RouteOut:
     route = db.query(Route).filter(Route.id == route_id).first()
     if not route or (not route.is_published and not user):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="РњР°СЂС€СЂСѓС‚ РЅРµ РЅР°Р№РґРµРЅ")
     rating_avg, rating_count = (
         db.query(func.avg(Review.rating), func.count(Review.id))
         .join(RouteDate, Review.route_date_id == RouteDate.id)
@@ -135,7 +172,7 @@ def get_route(
 def create_route(
     payload: RouteCreate,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("manager", "admin")),
+    user=Depends(require_rules(ROUTE_MANAGE)),
 ) -> RouteOut:
     route = Route(
         title=payload.title,
@@ -149,6 +186,7 @@ def create_route(
     )
     db.add(route)
     db.flush()
+    route.tariffs = _load_tariffs(db, payload.tariff_ids)
 
     points = [
         Point(
@@ -187,11 +225,11 @@ def update_route(
     route_id: int,
     payload: RouteUpdate,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("manager", "admin")),
+    user=Depends(require_rules(ROUTE_MANAGE)),
 ) -> RouteOut:
     route = db.query(Route).filter(Route.id == route_id).first()
     if not route:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="РњР°СЂС€СЂСѓС‚ РЅРµ РЅР°Р№РґРµРЅ")
 
     route.title = payload.title
     route.description = payload.description
@@ -201,6 +239,7 @@ def update_route(
     route.price_group = payload.price_group
     route.max_participants = payload.max_participants
     route.is_published = payload.is_published
+    route.tariffs = _load_tariffs(db, payload.tariff_ids)
 
     route.points.clear()
     route.photos.clear()
@@ -246,24 +285,23 @@ def list_route_dates(
 ) -> list[RouteDateOut]:
     route = db.query(Route).filter(Route.id == route_id).first()
     if not route or (not route.is_published and not user):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="РњР°СЂС€СЂСѓС‚ РЅРµ РЅР°Р№РґРµРЅ")
     query = db.query(RouteDate).filter(RouteDate.route_id == route_id)
-    is_manager = bool(user and user.role.value in {"manager", "admin"})
+    is_manager = bool(user and user_has_rule(db, user, ROUTE_MANAGE))
     if is_manager:
         if not include_inactive:
             query = query.filter(RouteDate.is_active.is_(True))
         if not include_booked:
             query = query.filter(RouteDate.is_booked.is_(False))
     else:
-        if include_past:
-            query = query.filter(RouteDate.starts_at <= datetime.now())
-        else:
+        query = query.filter(RouteDate.guide_id.isnot(None))
+        if not include_inactive:
+            query = query.filter(RouteDate.is_active.is_(True))
+        if not include_booked:
+            query = query.filter(RouteDate.is_booked.is_(False))
+        if not include_past:
             min_start = datetime.now() + timedelta(hours=24)
-            query = query.filter(
-                RouteDate.is_active.is_(True),
-                RouteDate.is_booked.is_(False),
-                RouteDate.starts_at >= min_start,
-            )
+            query = query.filter(RouteDate.starts_at >= min_start)
     dates = query.order_by(RouteDate.date.asc()).all()
     return [RouteDateOut.model_validate(item) for item in dates]
 
@@ -273,11 +311,12 @@ def create_route_date(
     route_id: int,
     payload: RouteDateCreate,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("manager", "admin")),
+    user=Depends(require_rules(ROUTE_MANAGE)),
 ) -> RouteDateOut:
     route = db.query(Route).filter(Route.id == route_id).first()
     if not route:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="РњР°СЂС€СЂСѓС‚ РЅРµ РЅР°Р№РґРµРЅ")
+    guide = _get_guide(db, payload.guide_id)
     starts_at = payload.starts_at
     date_value = payload.date
     if starts_at:
@@ -287,11 +326,12 @@ def create_route_date(
     _ensure_minimum_notice(starts_at)
     exists = db.query(RouteDate).filter(RouteDate.route_id == route_id, RouteDate.date == date_value).first()
     if exists:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Дата уже добавлена")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Р”Р°С‚Р° СѓР¶Рµ РґРѕР±Р°РІР»РµРЅР°")
     existing_dates = db.query(RouteDate).filter(RouteDate.route_id == route_id).all()
     _ensure_no_overlap(route, existing_dates, starts_at)
     route_date = RouteDate(
         route_id=route_id,
+        guide_id=guide.id,
         date=date_value,
         starts_at=starts_at,
         is_active=True,
@@ -302,7 +342,12 @@ def create_route_date(
         db,
         user,
         "route_date_create",
-        {"route_id": route_id, "date": date_value.isoformat(), "starts_at": starts_at.isoformat()},
+        {
+            "route_id": route_id,
+            "guide_id": guide.id,
+            "date": date_value.isoformat(),
+            "starts_at": starts_at.isoformat(),
+        },
     )
     db.commit()
     db.refresh(route_date)
@@ -315,7 +360,7 @@ def update_route_date(
     date_id: int,
     payload: RouteDateUpdate,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("manager", "admin")),
+    user=Depends(require_rules(ROUTE_MANAGE)),
 ) -> RouteDateOut:
     route_date = (
         db.query(RouteDate)
@@ -323,10 +368,18 @@ def update_route_date(
         .first()
     )
     if not route_date:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Дата не найдена")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Р”Р°С‚Р° РЅРµ РЅР°Р№РґРµРЅР°")
     route = db.query(Route).filter(Route.id == route_id).first()
     if not route:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="РњР°СЂС€СЂСѓС‚ РЅРµ РЅР°Р№РґРµРЅ")
+    next_guide_id = route_date.guide_id
+    if payload.guide_id is not None:
+        next_guide_id = _get_guide(db, payload.guide_id).id
+    if next_guide_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Назначьте экскурсовода для этой экскурсии",
+        )
     original_date = route_date.date
     next_date = route_date.date
     next_starts_at = route_date.starts_at
@@ -353,7 +406,7 @@ def update_route_date(
             .first()
         )
         if exists:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Дата уже занята")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Р”Р°С‚Р° СѓР¶Рµ Р·Р°РЅСЏС‚Р°")
         route_date.date = next_date
         route_date.starts_at = next_starts_at
         db.query(Booking).filter(
@@ -365,6 +418,8 @@ def update_route_date(
         route_date.starts_at = next_starts_at
     if payload.is_active is not None:
         route_date.is_active = payload.is_active
+    if route_date.guide_id != next_guide_id:
+        route_date.guide_id = next_guide_id
     log_action(
         db,
         user,
@@ -373,6 +428,7 @@ def update_route_date(
             "route_id": route_id,
             "date_id": route_date.id,
             "is_active": payload.is_active,
+            "guide_id": route_date.guide_id,
             "date": route_date.date.isoformat(),
             "starts_at": route_date.starts_at.isoformat() if route_date.starts_at else None,
         },
@@ -387,7 +443,7 @@ def delete_route_date(
     route_id: int,
     date_id: int,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("manager", "admin")),
+    user=Depends(require_rules(ROUTE_MANAGE)),
 ) -> dict:
     route_date = (
         db.query(RouteDate)
@@ -395,9 +451,9 @@ def delete_route_date(
         .first()
     )
     if not route_date:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Дата не найдена")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Р”Р°С‚Р° РЅРµ РЅР°Р№РґРµРЅР°")
     if route_date.is_booked:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Нельзя удалить забронированную дату")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="РќРµР»СЊР·СЏ СѓРґР°Р»РёС‚СЊ Р·Р°Р±СЂРѕРЅРёСЂРѕРІР°РЅРЅСѓСЋ РґР°С‚Сѓ")
     db.delete(route_date)
     log_action(db, user, "route_date_delete", {"route_id": route_id, "date_id": date_id})
     db.commit()
@@ -413,16 +469,21 @@ def list_reviews(
 ) -> list[ReviewOut]:
     route = db.query(Route).filter(Route.id == route_id).first()
     if not route or (not route.is_published and not user):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="РњР°СЂС€СЂСѓС‚ РЅРµ РЅР°Р№РґРµРЅ")
     query = (
         db.query(Review, RouteDate)
         .join(RouteDate, Review.route_date_id == RouteDate.id)
         .filter(RouteDate.route_id == route_id)
     )
-    is_manager = bool(user and user.role.value in {"manager", "admin"})
+    is_manager = bool(user and user_has_rule(db, user, REVIEWS_MODERATE))
     if include_pending:
         if not is_manager:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется авторизация")
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Требуется авторизация",
+                )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав")
     else:
         query = query.filter(Review.is_approved.is_(True))
     rows = query.order_by(Review.created_at.desc()).all()
@@ -449,7 +510,7 @@ def create_review(
 ) -> ReviewOut:
     route = db.query(Route).filter(Route.id == route_id, Route.is_published.is_(True)).first()
     if not route:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="РњР°СЂС€СЂСѓС‚ РЅРµ РЅР°Р№РґРµРЅ")
     route_date = (
         db.query(RouteDate)
         .filter(
@@ -459,13 +520,8 @@ def create_review(
         .first()
     )
     if not route_date:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Экскурсия не найдена")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Р­РєСЃРєСѓСЂСЃРёСЏ РЅРµ РЅР°Р№РґРµРЅР°")
     starts_at = route_date.starts_at or datetime.combine(route_date.date, time(0, 0))
-    if starts_at > datetime.now():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Экскурсия еще не проведена",
-        )
     booking = (
         db.query(Booking)
         .filter(
@@ -475,16 +531,11 @@ def create_review(
         .first()
     )
     if not booking or booking.route_id != route_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Бронь не найдена")
-    if booking.status != BookingStatus.completed:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Отзыв доступен после завершения экскурсии",
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Р‘СЂРѕРЅСЊ РЅРµ РЅР°Р№РґРµРЅР°")
     if booking.desired_date != route_date.date:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Бронь не относится к выбранной экскурсии",
+            detail="Р‘СЂРѕРЅСЊ РЅРµ РѕС‚РЅРѕСЃРёС‚СЃСЏ Рє РІС‹Р±СЂР°РЅРЅРѕР№ СЌРєСЃРєСѓСЂСЃРёРё",
         )
     exists = (
         db.query(Review)
@@ -492,7 +543,7 @@ def create_review(
         .first()
     )
     if exists:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Отзыв уже оставлен")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="РћС‚Р·С‹РІ СѓР¶Рµ РѕСЃС‚Р°РІР»РµРЅ")
     review = Review(
         route_date_id=route_date.id,
         booking_id=booking.id,
@@ -528,7 +579,7 @@ def update_review(
     review_id: int,
     payload: ReviewUpdate,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("manager", "admin")),
+    user=Depends(require_rules(REVIEWS_MODERATE)),
 ) -> ReviewOut:
     row = (
         db.query(Review, RouteDate)
@@ -537,7 +588,7 @@ def update_review(
         .first()
     )
     if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Отзыв не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="РћС‚Р·С‹РІ РЅРµ РЅР°Р№РґРµРЅ")
     review, route_date = row
     if payload.is_approved is not None:
         review.is_approved = payload.is_approved
@@ -565,12 +616,13 @@ def update_review(
 def archive_route(
     route_id: int,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("manager", "admin")),
+    user=Depends(require_rules(ROUTE_MANAGE)),
 ) -> dict:
     route = db.query(Route).filter(Route.id == route_id).first()
     if not route:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="РњР°СЂС€СЂСѓС‚ РЅРµ РЅР°Р№РґРµРЅ")
     route.is_published = False
     log_action(db, user, "route_archive", {"route_id": route.id})
     db.commit()
     return {"status": "ok"}
+
