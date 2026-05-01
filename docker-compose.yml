@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgis/postgis:15-3.4
+    env_file: .env
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gidix} -d ${POSTGRES_DB:-gidix}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-gidix}:${POSTGRES_PASSWORD:-gidix_password}@postgres:5432/${POSTGRES_DB:-gidix}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - backend_media:/app/media
+      - backend_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      osrm:
+        condition: service_started
+        required: false
+
+  frontend:
+    build: ./frontend
+    env_file: .env
+    environment:
+      VITE_API_BASE: ${PUBLIC_API_URL:-http://localhost:8000}
+      VITE_TILE_URL: ${VITE_TILE_URL:-https://tile.openstreetmap.org/{z}/{x}/{y}.png}
+      VITE_TILE_ATTRIBUTION: ${VITE_TILE_ATTRIBUTION:-© OpenStreetMap contributors}
+      VITE_PLACEHOLDER_IMAGE: ${VITE_PLACEHOLDER_IMAGE:-https://placehold.co/600x400/EEE/31343C}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      - backend
+
+  osrm:
+    profiles: ["osrm"]
+    image: osrm/osrm-backend:latest
+    command: osrm-routed --algorithm mld --max-table-size 1000 --max-trip-size 1000 /data/bashkortostan_republic.osrm
+    volumes:
+      - ./backend/osrm:/data
+    ports:
+      - "5000:5000"
+
+volumes:
+  postgres_data:
+  backend_media:
+  backend_logs:
