@@ -4,9 +4,12 @@ body {
   margin: 0;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background:
+    linear-gradient(90deg, rgba(32, 123, 251, .045) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(60, 182, 58, .04) 1px, transparent 1px),
     radial-gradient(circle at 10% 0%, rgba(32, 123, 251, .14), transparent 32rem),
     radial-gradient(circle at 92% 8%, rgba(60, 182, 58, .14), transparent 26rem),
     var(--bg);
+  background-size: 42px 42px, 42px 42px, auto, auto, auto;
   color: var(--text);
 }
 
@@ -48,9 +51,21 @@ textarea { min-height: 96px; resize: vertical; }
   inset: 0 0 auto;
   height: 72px;
   z-index: 2000;
-  background: rgba(255, 255, 255, .9);
+  background:
+    linear-gradient(90deg, rgba(32, 123, 251, .12), rgba(60, 182, 58, .09)),
+    rgba(255, 255, 255, .92);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid rgba(214, 228, 245, .9);
+}
+
+.site-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--blue), var(--green), var(--blue));
 }
 
 .site-header-inner {
@@ -137,7 +152,7 @@ textarea { min-height: 96px; resize: vertical; }
 .card, .panel, .empty, .auth-panel, .booking-panel, .rich-panel, .summary-card, .object-card {
   background: rgba(255, 255, 255, .94);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 8px;
   box-shadow: 0 8px 28px rgba(18, 35, 63, .06);
 }
 
@@ -182,6 +197,29 @@ textarea { min-height: 96px; resize: vertical; }
 .route-map-title h1 { font-size: clamp(36px, 6vw, 76px); line-height: 1; margin: 10px 0 12px; text-shadow: 0 4px 18px rgba(0,0,0,.2); }
 .route-map-title p { font-size: 20px; margin: 0; }
 
+.hero-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(255,255,255,.28);
+}
+.hero-facts span {
+  display: grid;
+  gap: 4px;
+  min-width: 130px;
+  color: rgba(255,255,255,.78);
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 900;
+}
+.hero-facts strong {
+  color: #fff;
+  font-size: 28px;
+  text-transform: none;
+}
+
 .route-summary {
   position: relative;
   z-index: 800;
@@ -205,6 +243,65 @@ textarea { min-height: 96px; resize: vertical; }
 .rich-panel, .booking-panel, .panel, .empty, .auth-panel { padding: 22px; }
 .booking-panel { position: sticky; top: 92px; }
 
+.excursion-page {
+  position: relative;
+  padding-bottom: 60px;
+}
+.excursion-page::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 430px calc(50% - 50vw) 0;
+  background:
+    linear-gradient(90deg, rgba(32,123,251,.08) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(60,182,58,.08) 1px, transparent 1px),
+    radial-gradient(circle at 15% 8%, rgba(32,123,251,.24), transparent 32rem),
+    radial-gradient(circle at 88% 20%, rgba(60,182,58,.18), transparent 28rem),
+    #071525;
+  background-size: 48px 48px, 48px 48px, auto, auto, auto;
+}
+.excursion-page .rich-panel,
+.excursion-page .booking-panel {
+  background: rgba(9, 24, 43, .92);
+  border-color: rgba(105, 142, 190, .28);
+  color: #eaf4ff;
+  box-shadow: 0 24px 70px rgba(0,0,0,.28);
+}
+.excursion-page .rich-panel p,
+.excursion-page .timeline span,
+.excursion-page .booking-panel .muted {
+  color: #9fb4d2;
+}
+.excursion-page input,
+.excursion-page textarea,
+.excursion-page select {
+  background: rgba(255,255,255,.08);
+  border-color: rgba(160,188,225,.28);
+  color: #fff;
+}
+
+.booking-calendar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.booking-calendar button {
+  min-height: 94px;
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(160,188,225,.26);
+  color: #eaf4ff;
+}
+.booking-calendar button.selected {
+  background: linear-gradient(135deg, var(--blue), var(--green));
+  border-color: transparent;
+}
+.booking-calendar span { color: #9fb4d2; font-size: 13px; }
+.booking-calendar strong { font-size: 22px; }
+.booking-calendar small { color: rgba(255,255,255,.72); }
+
 .timeline {
   display: grid;
   gap: 12px;
@@ -226,12 +323,16 @@ textarea { min-height: 96px; resize: vertical; }
 .map, .admin-map {
   width: 100%;
   height: 360px;
-  border-radius: 14px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   overflow: hidden;
 }
-.admin-map { height: 280px; }
+.admin-map { height: min(70vh, 680px); min-height: 520px; }
 .leaflet-container { font-family: inherit; background: #eaf5ff; }
+.leaflet-tile {
+  filter: saturate(1.18) contrast(1.06) hue-rotate(178deg) brightness(1.02);
+}
+.leaflet-control-attribution { display: none !important; }
 .map-marker {
   border-radius: 999px;
   background: var(--blue);
@@ -243,8 +344,33 @@ textarea { min-height: 96px; resize: vertical; }
   box-shadow: 0 0 0 4px rgba(60,182,58,.32), 0 12px 24px rgba(18,35,63,.25);
 }
 
-.auth-screen { min-height: calc(100vh - 104px); display: grid; place-items: center; }
-.auth-panel { width: min(460px, 100%); }
+.auth-screen {
+  min-height: calc(100vh - 104px);
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+}
+.auth-screen::before {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border: 1px solid rgba(32,123,251,.18);
+  background:
+    linear-gradient(120deg, rgba(32,123,251,.14), transparent 38%),
+    linear-gradient(300deg, rgba(60,182,58,.13), transparent 42%);
+  border-radius: 8px;
+}
+.auth-screen::after {
+  content: "GIDIX";
+  position: absolute;
+  right: 8vw;
+  bottom: 8vh;
+  color: rgba(32,123,251,.08);
+  font-size: clamp(80px, 18vw, 240px);
+  font-weight: 900;
+}
+.auth-panel { width: min(460px, 100%); position: relative; z-index: 1; }
 .auth-panel h1 { margin: 0 0 8px; font-size: 34px; }
 .auth-panel p, .page-head p, .empty p, .object-card p { color: var(--muted); }
 .auth-form, .stack { display: grid; gap: 12px; }
@@ -258,7 +384,7 @@ textarea { min-height: 96px; resize: vertical; }
 }
 .metrics div {
   padding: 18px;
-  border-radius: 14px;
+  border-radius: 8px;
   color: #fff;
   background: linear-gradient(135deg, var(--blue), var(--green));
   display: grid;
@@ -303,11 +429,47 @@ textarea { min-height: 96px; resize: vertical; }
   max-height: 230px;
   overflow: auto;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 10px;
   background: #fff;
   display: grid;
   gap: 8px;
+}
+
+.crud-layout {
+  grid-template-columns: 1fr;
+}
+.poi-editor {
+  grid-template-columns: minmax(320px, .35fr) minmax(0, .65fr);
+  align-items: start;
+}
+.poi-editor .wide-list,
+.map-panel {
+  grid-column: 1 / -1;
+}
+.panel-title-row {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.panel-title-row h2 { margin: 0; }
+.panel-title-row span { color: var(--muted); font-weight: 700; }
+.coordinate-readout {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 12px;
+  border: 1px dashed rgba(32,123,251,.45);
+  background: linear-gradient(135deg, rgba(32,123,251,.09), rgba(60,182,58,.09));
+  border-radius: 8px;
+  color: var(--muted);
+  font-weight: 800;
+}
+.object-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .check-list label {
   display: grid;
@@ -352,6 +514,7 @@ th { color: var(--muted); font-weight: 900; }
 .inline-state.error { color: var(--danger); border-color: #ffd0cc; background: #fff6f5; }
 .ok { color: var(--green); font-weight: 800; }
 .error { color: var(--danger); font-weight: 800; }
+.muted { color: var(--muted); }
 .spin { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -361,7 +524,9 @@ th { color: var(--muted); font-weight: 900; }
   .site-nav, .site-actions { overflow-x: auto; }
   .content { padding-top: 154px; }
   .catalog-hero { padding: 28px; min-height: 300px; }
-  .route-summary, .metrics, .route-content-grid, .crud-layout, .two-cols, .upload-field { grid-template-columns: 1fr; }
+  .route-summary, .metrics, .route-content-grid, .crud-layout, .poi-editor, .two-cols, .upload-field, .object-grid, .booking-calendar { grid-template-columns: 1fr; }
   .route-map-hero { min-height: 480px; }
+  .hero-facts { gap: 14px; }
+  .admin-map { min-height: 420px; }
   .booking-panel { position: static; }
 }

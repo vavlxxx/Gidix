@@ -1,7 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
-import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import {
   CalendarDays,
@@ -12,6 +12,7 @@ import {
   LogIn,
   LogOut,
   Map,
+  MapPin,
   Plus,
   Route as RouteIcon,
   Save,
@@ -105,6 +106,8 @@ function Shell() {
           <Link className="brand" to="/">GIDIX</Link>
           <nav className="site-nav">
             <NavLink to="/">Экскурсии</NavLink>
+            <NavLink to="/#map">Карта</NavLink>
+            <NavLink to="/#dates">Даты</NavLink>
             {auth.user && <NavLink to="/admin">Управление</NavLink>}
           </nav>
           <div className="site-actions">
@@ -244,14 +247,13 @@ function ExcursionDetailPage() {
           <span className="eyebrow">экскурсия</span>
           <h1>{item.title}</h1>
           <p>{item.meeting_point || "Место встречи уточняется после заявки"}</p>
+          <div className="hero-facts">
+            <span><strong>{Number(item.base_price).toLocaleString("ru-RU")} ₽</strong> стоимость</span>
+            <span><strong>{item.duration_min || item.route?.estimated_duration_min || "—"} мин</strong> длительность</span>
+            <span><strong>{item.route?.estimated_length_km || "—"} км</strong> длина</span>
+            <span><strong>{item.max_participants}</strong> участников</span>
+          </div>
         </div>
-      </section>
-
-      <section className="route-summary">
-        <div className="summary-card"><strong>{Number(item.base_price).toLocaleString("ru-RU")} ₽</strong><span>стоимость</span></div>
-        <div className="summary-card"><strong>{item.duration_min || item.route?.estimated_duration_min || "—"} мин</strong><span>длительность</span></div>
-        <div className="summary-card"><strong>{item.route?.estimated_length_km || "—"} км</strong><span>длина</span></div>
-        <div className="summary-card"><strong>{item.max_participants}</strong><span>участников</span></div>
       </section>
 
       <section className="route-content-grid">
@@ -274,20 +276,26 @@ function ExcursionDetailPage() {
         <aside className="booking-panel">
           <h2>Записаться</h2>
           <form className="stack" onSubmit={submit}>
-            <select value={form.session_id} onChange={(e) => setForm({ ...form, session_id: e.target.value })}>
-              <option value="">Выберите дату</option>
-              {sessions.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {formatDate(session.session_date)} · {session.start_time?.slice(0, 5)} · мест {session.capacity}
-                </option>
-              ))}
-            </select>
+            <div className="booking-calendar" id="dates">
+              {sessions.length ? sessions.map((session) => (
+                <button
+                  type="button"
+                  key={session.id}
+                  className={String(session.id) === String(form.session_id) ? "selected" : ""}
+                  onClick={() => setForm({ ...form, session_id: String(session.id) })}
+                >
+                  <span>{formatDate(session.session_date)}</span>
+                  <strong>{session.start_time?.slice(0, 5)}</strong>
+                  <small>{session.capacity} мест</small>
+                </button>
+              )) : <p className="muted">Доступные даты пока не добавлены.</p>}
+            </div>
             <input autoComplete="name" placeholder="Имя" value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} required />
             <input autoComplete="tel" placeholder="Телефон" value={form.customer_phone} onChange={(e) => setForm({ ...form, customer_phone: e.target.value })} />
             <input autoComplete="email" placeholder="Email" value={form.customer_email} onChange={(e) => setForm({ ...form, customer_email: e.target.value })} />
             <input type="number" min="1" value={form.participants_count} onChange={(e) => setForm({ ...form, participants_count: e.target.value })} />
             <textarea placeholder="Комментарий" value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} />
-            <button className="button primary">Отправить заявку</button>
+            <button className="button primary" disabled={!form.session_id}>Отправить заявку</button>
             {status && <p className="ok">{status}</p>}
             {error && <p className="error">{error}</p>}
           </form>
@@ -440,6 +448,14 @@ function PointCrud({ points, onDone, onError }) {
     setForm({ ...empty, ...point, latitude: String(point.latitude), longitude: String(point.longitude) });
   }
 
+  function placeOnMap(latlng) {
+    setForm((prev) => ({
+      ...prev,
+      latitude: latlng.lat.toFixed(7),
+      longitude: latlng.lng.toFixed(7)
+    }));
+  }
+
   async function upload(file) {
     const asset = await adminApi.upload(file);
     setForm((prev) => ({ ...prev, image_url: asset.url }));
@@ -447,6 +463,10 @@ function PointCrud({ points, onDone, onError }) {
 
   async function submit(event) {
     event.preventDefault();
+    if (!form.latitude || !form.longitude) {
+      onError("Поставьте точку на карте");
+      return;
+    }
     const payload = cleanPayload({
       ...form,
       latitude: Number(form.latitude),
@@ -476,22 +496,38 @@ function PointCrud({ points, onDone, onError }) {
   }
 
   return (
-    <div className="crud-layout">
-      <section className="panel">
+    <div className="crud-layout poi-editor">
+      <section className="panel poi-form">
         <h2>{editingId ? "Редактирование точки" : "Новая точка"}</h2>
         <form className="stack" onSubmit={submit}>
           <input placeholder="Название" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <textarea placeholder="Краткое описание" value={form.short_description || ""} onChange={(e) => setForm({ ...form, short_description: e.target.value })} />
           <textarea placeholder="Полное описание" value={form.full_description || ""} onChange={(e) => setForm({ ...form, full_description: e.target.value })} />
           <input placeholder="Адрес" value={form.address || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-          <div className="two-cols">
-            <input placeholder="Широта" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} required />
-            <input placeholder="Долгота" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} required />
+          <div className="coordinate-readout">
+            <MapPin size={17} />
+            {form.latitude && form.longitude ? (
+              <span>Выбрано на карте: {Number(form.latitude).toFixed(6)}, {Number(form.longitude).toFixed(6)}</span>
+            ) : (
+              <span>Кликните по карте, чтобы выбрать координаты</span>
+            )}
           </div>
           <UploadField value={form.image_url} onUpload={upload} onChange={(value) => setForm({ ...form, image_url: value })} />
           <button className="button primary"><Save size={17} /> Сохранить</button>
           {editingId && <button type="button" className="button ghost" onClick={() => { setEditingId(null); setForm(empty); }}><X size={17} /> Отмена</button>}
         </form>
+      </section>
+      <section className="panel map-panel">
+        <div className="panel-title-row">
+          <h2>Карта точек</h2>
+          <span>Клик по карте задаёт координаты новой точки. Клик по маркеру открывает редактирование.</span>
+        </div>
+        <AdminMap
+          points={points}
+          selectedPosition={form.latitude && form.longitude ? [Number(form.latitude), Number(form.longitude)] : null}
+          onAddPoint={placeOnMap}
+          onPickPoint={edit}
+        />
       </section>
       <section className="panel wide-list">
         <h2>Точки интереса</h2>
@@ -892,8 +928,9 @@ function RouteMap({ route, hero = false }) {
   const line = osrm.length > 1 ? osrm : manual;
   const center = line[0] || [54.7351, 55.9587];
   return (
-    <MapContainer key={`${center[0]}-${center[1]}-${line.length}-${hero}`} center={center} zoom={hero ? 13 : 12} scrollWheelZoom className={hero ? "hero-map" : "map"}>
-      <TileLayer attribution={tileAttribution} url={tileUrl} />
+    <MapContainer key={`${center[0]}-${center[1]}-${line.length}-${hero}`} center={center} zoom={hero ? 13 : 12} scrollWheelZoom className={hero ? "hero-map" : "map"} attributionControl={false}>
+      <TileLayer attribution="" url={tileUrl} />
+      <FitMapToPositions positions={line} />
       {manual.length > 1 && <Polyline positions={manual} pathOptions={{ color: "#3cb63a", weight: 9, opacity: 0.22, lineCap: "round" }} />}
       {line.length > 1 && <Polyline positions={line} pathOptions={{ color: "#207bfb", weight: 5, opacity: 0.92, lineCap: "round" }} />}
       {routePoints.map((link, index) => (
@@ -906,21 +943,44 @@ function RouteMap({ route, hero = false }) {
   );
 }
 
-function AdminMap({ points, onAddPoint }) {
-  const center = points[0] ? [Number(points[0].latitude), Number(points[0].longitude)] : [54.7351, 55.9587];
+function AdminMap({ points, onAddPoint, onPickPoint, selectedPosition = null }) {
+  const center = selectedPosition || (points[0] ? [Number(points[0].latitude), Number(points[0].longitude)] : [54.7351, 55.9587]);
   const line = points.map((point) => [Number(point.latitude), Number(point.longitude)]);
+  const boundsPoints = selectedPosition ? [...line, selectedPosition] : line;
   return (
-    <MapContainer center={center} zoom={12} className="admin-map" scrollWheelZoom>
-      <TileLayer attribution={tileAttribution} url={tileUrl} />
+    <MapContainer center={center} zoom={12} className="admin-map" scrollWheelZoom attributionControl={false}>
+      <TileLayer attribution="" url={tileUrl} />
       <MapClick onAddPoint={onAddPoint} />
+      <FitMapToPositions positions={boundsPoints} />
       {line.length > 1 && <Polyline positions={line} pathOptions={{ color: "#207bfb", weight: 4 }} />}
       {points.map((point, index) => (
-        <Marker key={point.id} position={[Number(point.latitude), Number(point.longitude)]} icon={markerIcon}>
+        <Marker
+          key={point.id}
+          position={[Number(point.latitude), Number(point.longitude)]}
+          icon={markerIcon}
+          eventHandlers={{ click: () => onPickPoint?.(point) }}
+        >
           <Tooltip>{index + 1}. {point.name}</Tooltip>
+          <Popup><strong>{point.name}</strong><p>{point.short_description || point.address}</p></Popup>
         </Marker>
       ))}
+      {selectedPosition && (
+        <Marker position={selectedPosition} icon={activeMarkerIcon}>
+          <Tooltip>Выбранная позиция</Tooltip>
+        </Marker>
+      )}
     </MapContainer>
   );
+}
+
+function FitMapToPositions({ positions }) {
+  const map = useMap();
+  React.useEffect(() => {
+    const valid = positions.filter((position) => Number.isFinite(position?.[0]) && Number.isFinite(position?.[1]));
+    if (valid.length > 1) map.fitBounds(valid, { padding: [40, 40], maxZoom: 15 });
+    else if (valid.length === 1) map.setView(valid[0], 14);
+  }, [map, positions]);
+  return null;
 }
 
 function MapClick({ onAddPoint }) {

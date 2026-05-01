@@ -12,6 +12,7 @@ from src.models.domain import Excursion, GuideSession, PointCategory, PointOfInt
 from src.schemas.auth import RoleName
 from src.services.auth import TokenService, ensure_roles
 from src.utils.db_tools import DBManager
+from src.extra.osrm_points import points as OSRM_POINTS
 
 
 USERS = [
@@ -24,11 +25,13 @@ USERS = [
 ]
 
 POINTS = [
-    ("Монумент Дружбы", "Памятник", 54.710892, 55.943981),
-    ("Гостиный двор", "Архитектура", 54.724606, 55.945190),
-    ("Сад имени Салавата Юлаева", "Парк", 54.720081, 55.952237),
-    ("Набережная реки Белой", "Прогулка", 54.718455, 55.925766),
+    ("Монумент Дружбы", "Памятник", 55.943981, 54.710892),
+    ("Гостиный двор", "Архитектура", 55.945190, 54.724606),
+    ("Сад имени Салавата Юлаева", "Парк", 55.952237, 54.720081),
+    ("Набережная реки Белой", "Прогулка", 55.925766, 54.718455),
 ]
+
+OSRM_CATEGORY = "OSRM"
 
 
 async def main() -> None:
@@ -69,7 +72,8 @@ async def ensure_user_role(db: DBManager, user: User, role_name: str) -> None:
 
 async def seed_points_and_excursion(db: DBManager) -> None:
     categories: dict[str, PointCategory] = {}
-    for _, category_name, _, _ in POINTS:
+    point_rows = [*_base_point_rows(), *_osrm_point_rows()]
+    for _, category_name, _, _ in point_rows:
         result = await db.session.execute(select(PointCategory).where(PointCategory.name == category_name))
         category = result.scalar_one_or_none()
         if category is None:
@@ -78,8 +82,8 @@ async def seed_points_and_excursion(db: DBManager) -> None:
             await db.session.flush()
         categories[category_name] = category
 
-    points: list[PointOfInterest] = []
-    for name, category_name, lon, lat in POINTS:
+    demo_points: list[PointOfInterest] = []
+    for name, category_name, lon, lat in point_rows:
         result = await db.session.execute(select(PointOfInterest).where(PointOfInterest.name == name))
         point = result.scalar_one_or_none()
         if point is None:
@@ -95,7 +99,16 @@ async def seed_points_and_excursion(db: DBManager) -> None:
             )
             db.session.add(point)
             await db.session.flush()
-        points.append(point)
+        else:
+            point.category_id = categories[category_name].id
+            point.latitude = lat
+            point.longitude = lon
+            point.short_description = point.short_description or f"Достопримечательность: {name}"
+            point.visit_duration_min = point.visit_duration_min or 20
+            point.image_url = point.image_url or "https://placehold.co/600x400/EEE/31343C"
+            point.source = point.source or "seed"
+        if category_name != OSRM_CATEGORY:
+            demo_points.append(point)
 
     result = await db.session.execute(select(Route).where(Route.title == "Прогулка по центру Уфы"))
     route = result.scalar_one_or_none()
@@ -103,15 +116,15 @@ async def seed_points_and_excursion(db: DBManager) -> None:
         route = Route(
             title="Прогулка по центру Уфы",
             description="Базовый маршрут по популярным точкам Уфы.",
-            start_point_id=points[0].id,
-            finish_point_id=points[-1].id,
+            start_point_id=demo_points[0].id,
+            finish_point_id=demo_points[-1].id,
             estimated_duration_min=120,
             estimated_length_km=Decimal("4.50"),
             formation_type="seed",
         )
         db.session.add(route)
         await db.session.flush()
-        for position, point in enumerate(points, 1):
+        for position, point in enumerate(demo_points, 1):
             db.session.add(RoutePoint(route_id=route.id, point_id=point.id, position=position, visit_duration_min=20))
 
     result = await db.session.execute(select(Excursion).where(Excursion.title == "Уфа: первые истории"))
@@ -132,6 +145,21 @@ async def seed_points_and_excursion(db: DBManager) -> None:
         db.session.add(GuideSession(excursion_id=excursion.id, session_date=date.today(), start_time=time(12, 0), capacity=20))
 
     await db.commit()
+
+
+def _base_point_rows() -> list[tuple[str, str, float, float]]:
+    return [(_clean_text(name), _clean_text(category_name), lon, lat) for name, category_name, lon, lat in POINTS]
+
+
+def _osrm_point_rows() -> list[tuple[str, str, float, float]]:
+    return [(_clean_text(point.name), OSRM_CATEGORY, point.lon, point.lat) for point in OSRM_POINTS]
+
+
+def _clean_text(value: str) -> str:
+    try:
+        return value.encode("cp1251").decode("utf-8")
+    except UnicodeError:
+        return value
 
 
 if __name__ == "__main__":

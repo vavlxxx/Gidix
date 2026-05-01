@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --port 3000 --force",
-    "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0 --port 3000"
+    "dev": "vite --configLoader native --host 0.0.0.0 --port 3000 --force",
+    "build": "vite build --configLoader native",
+    "preview": "vite preview --configLoader native --host 0.0.0.0 --port 3000"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
