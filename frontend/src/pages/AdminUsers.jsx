@@ -131,7 +131,9 @@ export default function AdminUsers() {
             Роль
             <select name="role" value={form.role} onChange={handleChange}>
               <option value="guide">Экскурсовод</option>
+              <option value="dispatcher">Диспетчер</option>
               <option value="manager">Менеджер</option>
+              <option value="accountant">Бухгалтер</option>
               <option value="admin">Администратор</option>
               <option value="superuser">Суперпользователь</option>
             </select>
@@ -162,7 +164,9 @@ export default function AdminUsers() {
                     onChange={(event) => handleUpdate(item.id, { role: event.target.value })}
                   >
                     <option value="guide">Экскурсовод</option>
+                    <option value="dispatcher">Диспетчер</option>
                     <option value="manager">Менеджер</option>
+                    <option value="accountant">Бухгалтер</option>
                     <option value="admin">Администратор</option>
                     <option value="superuser">Суперпользователь</option>
                   </select>

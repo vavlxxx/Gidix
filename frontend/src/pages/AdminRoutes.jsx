@@ -130,7 +130,7 @@ export default function AdminRoutes() {
                 <h3>{route.title}</h3>
                 <p>{route.description.slice(0, 90)}...</p>
                 <div className="admin-route-meta">
-                  <span>{(distances[route.id] || 0).toFixed(1)} км</span>
+                  <span>{Number(route.estimated_length_km || distances[route.id] || 0).toFixed(1)} км</span>
                   <span>{route.duration_hours.toFixed(1)} ч</span>
                   <span>{route.is_published ? "Опубликован" : "Черновик"}</span>
                 </div>

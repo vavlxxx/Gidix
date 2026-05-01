@@ -4,8 +4,11 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import AdminLayout from "./pages/AdminLayout";
 import AdminBookings from "./pages/AdminBookings";
+import AdminExcursions from "./pages/AdminExcursions";
+import AdminIntegrations from "./pages/AdminIntegrations";
 import AdminLogin from "./pages/AdminLogin";
 import AdminPermissions from "./pages/AdminPermissions";
+import AdminPoints from "./pages/AdminPoints";
 import AdminRouteForm from "./pages/AdminRouteForm";
 import AdminRoutes from "./pages/AdminRoutes";
 import AdminTariffs from "./pages/AdminTariffs";
@@ -42,8 +45,11 @@ export default function App() {
         <Route path="routes" element={<AdminRoutes />} />
         <Route path="routes/new" element={<AdminRouteForm />} />
         <Route path="routes/:id" element={<AdminRouteForm />} />
+        <Route path="points" element={<AdminPoints />} />
+        <Route path="excursions" element={<AdminExcursions />} />
         <Route path="bookings" element={<AdminBookings />} />
         <Route path="tariffs" element={<AdminTariffs />} />
+        <Route path="integrations" element={<AdminIntegrations />} />
         <Route path="permissions" element={<AdminPermissions />} />
         <Route path="users" element={<AdminUsers />} />
       </Route>

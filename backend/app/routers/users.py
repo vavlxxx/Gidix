@@ -43,12 +43,15 @@ def create_user(
     exists = db.query(User).filter(User.email == payload.email).first()
     if exists:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email уже используется")
+    password_hash = get_password_hash(payload.password)
     new_user = User(
         full_name=payload.full_name,
         email=payload.email,
-        hashed_password=get_password_hash(payload.password),
+        hashed_password=password_hash,
+        password_hash=password_hash,
         role=payload.role,
         is_active=payload.is_active,
+        active=payload.is_active,
     )
     db.add(new_user)
     db.flush()
@@ -77,8 +80,11 @@ def update_user(
         role_changed = True
     if payload.is_active is not None:
         target.is_active = payload.is_active
+        target.active = payload.is_active
     if payload.password:
-        target.hashed_password = get_password_hash(payload.password)
+        password_hash = get_password_hash(payload.password)
+        target.hashed_password = password_hash
+        target.password_hash = password_hash
     if role_changed:
         sync_user_rules(db, target)
     log_action(db, user, "user_update", {"user_id": target.id})

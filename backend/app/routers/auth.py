@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -19,6 +21,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> Token:
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Пользователь заблокирован")
     token = create_access_token({"sub": str(user.id), "role": user.role.value})
+    user.last_login_at = datetime.utcnow()
     log_action(db, user, "login")
     db.commit()
     return Token(access_token=token, token_type="bearer", user=UserOut.model_validate(user))

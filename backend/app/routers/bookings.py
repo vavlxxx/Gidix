@@ -7,14 +7,14 @@ from sqlalchemy.orm import Session
 from app.audit import log_action
 from app.auth import require_rules
 from app.db import get_db
-from app.models import Booking, BookingStatus, Route, RouteDate
-from app.permissions import BOOKING_MANAGE
-from app.schemas import BookingCreate, BookingDetail, BookingListItem, BookingOut, BookingUpdate
+from app.models import Booking, BookingStatus, PaymentStatus, Route, RouteDate
+from app.permissions import BOOKING_MANAGE, PAYMENTS_MANAGE
+from app.schemas import BookingCreate, BookingDetail, BookingListItem, BookingOut, BookingUpdate, PaymentMarkRequest
 from app.utils import generate_booking_code
 
 router = APIRouter(prefix="/api/bookings", tags=["bookings"])
 
-BOOKED_STATUSES = {BookingStatus.confirmed, BookingStatus.completed}
+BOOKED_STATUSES = {BookingStatus.confirmed, BookingStatus.approved, BookingStatus.completed}
 
 
 def _starts_at_value(route_date: RouteDate) -> datetime:
@@ -84,11 +84,15 @@ def create_booking(payload: BookingCreate, db: Session = Depends(get_db)) -> Boo
         route_id=payload.route_id,
         client_name=payload.client_name,
         phone=payload.phone,
+        client_phone=payload.phone,
         email=payload.email,
+        client_email=payload.email,
         desired_date=payload.desired_date,
         participants=payload.participants,
+        participants_count=payload.participants,
         comment=payload.comment,
         status=BookingStatus.new,
+        booking_status=BookingStatus.new,
     )
     db.add(booking)
     log_action(db, None, "booking_create", {"route_id": payload.route_id})
@@ -140,6 +144,79 @@ def list_bookings(
         )
         for booking, route_title in rows
     ]
+
+
+@router.get("/payments/pending", response_model=list[BookingListItem])
+def list_payment_bookings(
+    db: Session = Depends(get_db),
+    user=Depends(require_rules(PAYMENTS_MANAGE)),
+) -> list[BookingListItem]:
+    rows = (
+        db.query(Booking, Route.title)
+        .join(Route, Booking.route_id == Route.id)
+        .filter(Booking.payment_status.in_([PaymentStatus.pending, PaymentStatus.failed]))
+        .order_by(Booking.created_at.desc())
+        .all()
+    )
+    return [
+        BookingListItem(
+            id=booking.id,
+            code=booking.code,
+            route_id=booking.route_id,
+            route_title=route_title,
+            client_name=booking.client_name,
+            desired_date=booking.desired_date,
+            participants=booking.participants,
+            status=booking.status,
+            created_at=booking.created_at,
+        )
+        for booking, route_title in rows
+    ]
+
+
+@router.post("/{booking_id}/mock-invoice")
+def create_mock_invoice(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_rules(PAYMENTS_MANAGE)),
+) -> dict:
+    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not booking:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
+    booking.payment_status = PaymentStatus.pending
+    log_action(db, user, "booking_mock_invoice", {"booking_id": booking.id})
+    db.commit()
+    return {
+        "booking_id": booking.id,
+        "invoice_number": f"GIDIX-{booking.code}",
+        "payment_status": booking.payment_status.value,
+        "message": "Mock-счет сформирован. Внешная платежная система не вызывается.",
+    }
+
+
+@router.patch("/{booking_id}/payment", response_model=BookingOut)
+def update_payment_status(
+    booking_id: int,
+    payload: PaymentMarkRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_rules(PAYMENTS_MANAGE)),
+) -> BookingOut:
+    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not booking:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
+    booking.payment_status = payload.payment_status
+    if payload.payment_status == PaymentStatus.paid:
+        booking.status = BookingStatus.approved
+        booking.booking_status = BookingStatus.approved
+    log_action(
+        db,
+        user,
+        "booking_payment_update",
+        {"booking_id": booking.id, "payment_status": payload.payment_status.value},
+    )
+    db.commit()
+    db.refresh(booking)
+    return BookingOut.model_validate(booking)
 
 
 @router.get("/{booking_id}", response_model=BookingDetail)
@@ -219,6 +296,7 @@ def update_booking(
                     )
                     route_date.is_booked = booked_count >= route.max_participants
         booking.status = next_status
+        booking.booking_status = next_status
         booking.status_updated_at = datetime.utcnow()
     if payload.internal_notes is not None:
         booking.internal_notes = payload.internal_notes

@@ -12,13 +12,19 @@ export default function SiteHeader() {
     navigate("/");
   };
 
-  const canManage = user && ["admin", "manager", "superuser"].includes(user.role);
+  const canManage = Boolean(user);
+  const canManageRoutes = user && ["admin", "manager", "superuser"].includes(user.role);
+  const canManageBookings = user && ["admin", "manager", "dispatcher", "accountant", "superuser"].includes(user.role);
+  const canManageAdmin = user && ["admin", "superuser"].includes(user.role);
   const roleLabel = user
     ? {
         superuser: "Суперпользователь",
         admin: "Администратор",
         manager: "Менеджер",
-        guide: "Экскурсовод"
+        dispatcher: "Диспетчер",
+        accountant: "Бухгалтер",
+        guide: "Экскурсовод",
+        client: "Клиент"
       }[user.role] || "Сотрудник"
     : "";
 
@@ -36,23 +42,40 @@ export default function SiteHeader() {
           </nav>
           {canManage && (
             <nav className="admin-nav admin-nav--header">
-              <NavLink to="/admin/routes" className={({ isActive }) => (isActive ? "active" : "")}>
-                Маршруты
-              </NavLink>
-              <NavLink to="/admin/bookings" className={({ isActive }) => (isActive ? "active" : "")}>
-                Заявки
-              </NavLink>
-              <NavLink to="/admin/tariffs" className={({ isActive }) => (isActive ? "active" : "")}>
-                Тарифы
-              </NavLink>
-              {["admin", "superuser"].includes(user.role) && (
+              {canManageRoutes && (
+                <>
+                  <NavLink to="/admin/routes" className={({ isActive }) => (isActive ? "active" : "")}>
+                    Маршруты
+                  </NavLink>
+                  <NavLink to="/admin/points" className={({ isActive }) => (isActive ? "active" : "")}>
+                    Точки
+                  </NavLink>
+                  <NavLink to="/admin/excursions" className={({ isActive }) => (isActive ? "active" : "")}>
+                    Экскурсии
+                  </NavLink>
+                  <NavLink to="/admin/tariffs" className={({ isActive }) => (isActive ? "active" : "")}>
+                    Тарифы
+                  </NavLink>
+                </>
+              )}
+              {canManageBookings && (
+                <NavLink to="/admin/bookings" className={({ isActive }) => (isActive ? "active" : "")}>
+                  Заявки
+                </NavLink>
+              )}
+              {canManageAdmin && (
                 <NavLink to="/admin/users" className={({ isActive }) => (isActive ? "active" : "")}>
                   Сотрудники
                 </NavLink>
               )}
-              {["admin", "superuser"].includes(user.role) && (
+              {canManageAdmin && (
                 <NavLink to="/admin/permissions" className={({ isActive }) => (isActive ? "active" : "")}>
                   Права
+                </NavLink>
+              )}
+              {canManageAdmin && (
+                <NavLink to="/admin/integrations" className={({ isActive }) => (isActive ? "active" : "")}>
+                  Интеграции
                 </NavLink>
               )}
             </nav>

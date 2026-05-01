@@ -16,6 +16,9 @@ const roleLabels = {
   superuser: "Суперпользователь",
   admin: "Администратор",
   manager: "Менеджер",
+  dispatcher: "Диспетчер",
+  accountant: "Бухгалтер",
+  client: "Клиент",
   guide: "Экскурсовод"
 };
 
@@ -215,7 +218,7 @@ export default function AdminPermissions() {
     if (role === "superuser") {
       return ["Все права"];
     }
-    const inheritedRoles = role === "admin" ? ["admin", "manager"] : [role];
+    const inheritedRoles = role === "admin" ? ["admin", "manager", "dispatcher", "accountant", "guide"] : [role];
     return rules
       .filter((rule) => rule.associated_role && inheritedRoles.includes(rule.associated_role))
       .map((rule) => rule.title);

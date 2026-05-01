@@ -7,20 +7,28 @@ from sqlalchemy.orm import Session
 from app.audit import log_action
 from app.auth import get_optional_user, require_rules
 from app.db import get_db
-from app.models import Booking, BookingStatus, Photo, Point, Review, Route, RouteDate, Tariff, User, UserRole
+from app.models import Booking, BookingStatus, FormationType, Photo, Point, Review, Route, RouteDate, Tariff, User, UserRole
 from app.permissions import REVIEWS_MODERATE, ROUTE_MANAGE, user_has_rule
 from app.schemas import (
     ReviewCreate,
     ReviewOut,
     ReviewUpdate,
+    RouteCalculateRequest,
     RouteCreate,
     RouteDateCreate,
     RouteDateOut,
     RouteDateUpdate,
     RouteListItem,
     RouteOut,
+    RoutePlanOut,
+    RoutePlanRequest,
+    RoutePlanPoint,
+    TourDescriptionOut,
+    TourDescriptionRequest,
     RouteUpdate,
 )
+from app.services.route_service import RoutePointInput, RouteService, RouteServiceError
+from app.services.tour_description_service import TourDescriptionError, TourDescriptionService
 
 router = APIRouter(prefix="/api/routes", tags=["routes"])
 
@@ -138,6 +146,8 @@ def list_routes(
             title=route.title,
             description=route.description,
             duration_hours=route.duration_hours,
+            estimated_duration_min=route.estimated_duration_min,
+            estimated_length_km=route.estimated_length_km,
             price_adult=route.price_adult,
             max_participants=route.max_participants,
             is_published=route.is_published,
@@ -176,13 +186,18 @@ def create_route(
 ) -> RouteOut:
     route = Route(
         title=payload.title,
+        name=payload.title,
         description=payload.description,
         duration_hours=payload.duration_hours,
+        estimated_duration_min=payload.estimated_duration_min,
+        estimated_length_km=payload.estimated_length_km,
         price_adult=payload.price_adult,
         price_child=payload.price_child,
         price_group=payload.price_group,
         max_participants=payload.max_participants,
         is_published=payload.is_published,
+        active=True,
+        formation_type=payload.formation_type,
     )
     db.add(route)
     db.flush()
@@ -232,13 +247,17 @@ def update_route(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="РњР°СЂС€СЂСѓС‚ РЅРµ РЅР°Р№РґРµРЅ")
 
     route.title = payload.title
+    route.name = payload.title
     route.description = payload.description
     route.duration_hours = payload.duration_hours
+    route.estimated_duration_min = payload.estimated_duration_min
+    route.estimated_length_km = payload.estimated_length_km
     route.price_adult = payload.price_adult
     route.price_child = payload.price_child
     route.price_group = payload.price_group
     route.max_participants = payload.max_participants
     route.is_published = payload.is_published
+    route.formation_type = payload.formation_type
     route.tariffs = _load_tariffs(db, payload.tariff_ids)
 
     route.points.clear()
@@ -272,6 +291,154 @@ def update_route(
     db.commit()
     db.refresh(route)
     return RouteOut.model_validate(route)
+
+
+def _route_points_for_service(route: Route) -> list[RoutePointInput]:
+    points = sorted(route.points, key=lambda item: item.order_index)
+    return [
+        RoutePointInput(
+            name=point.title,
+            lon=point.lng,
+            lat=point.lat,
+            facts=point.description,
+        )
+        for point in points
+    ]
+
+
+def _route_plan_response(plan: dict) -> RoutePlanOut:
+    return RoutePlanOut(
+        algorithm=plan["algorithm"],
+        order=plan["order"],
+        ordered_points=[
+            RoutePlanPoint(
+                name=point.name,
+                lon=point.lon,
+                lat=point.lat,
+                facts=point.facts,
+            )
+            for point in plan["ordered_points"]
+        ],
+        distance_km=plan["distance_km"],
+        duration_min=plan["duration_min"],
+        geometry_geojson=plan["geometry_geojson"],
+        legs=plan["legs"],
+        fallback=plan["fallback"],
+        message=plan["message"],
+    )
+
+
+@router.post("/plan", response_model=RoutePlanOut)
+def plan_route(
+    payload: RoutePlanRequest,
+    user=Depends(require_rules(ROUTE_MANAGE)),
+) -> RoutePlanOut:
+    service_points = [
+        RoutePointInput(name=point.name, lon=point.lon, lat=point.lat, facts=point.facts)
+        for point in payload.points
+    ]
+    try:
+        plan = RouteService().plan_route(
+            service_points,
+            algorithm=payload.algorithm,
+            start_index=payload.start_index,
+            finish_index=payload.finish_index,
+        )
+    except RouteServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return _route_plan_response(plan)
+
+
+@router.post("/{route_id}/calculate", response_model=RoutePlanOut)
+def calculate_route(
+    route_id: int,
+    payload: RouteCalculateRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_rules(ROUTE_MANAGE)),
+) -> RoutePlanOut:
+    route = db.query(Route).filter(Route.id == route_id).first()
+    if not route:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+    service_points = _route_points_for_service(route)
+    try:
+        plan = RouteService().plan_route(service_points, algorithm=payload.algorithm)
+    except RouteServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    if payload.persist_order:
+        point_by_old_index = {index: point for index, point in enumerate(sorted(route.points, key=lambda item: item.order_index))}
+        for new_index, old_index in enumerate(plan["order"]):
+            point_by_old_index[old_index].order_index = new_index
+
+    route.geometry_geojson = plan["geometry_geojson"]
+    route.estimated_length_km = plan["distance_km"]
+    route.estimated_duration_min = round(plan["duration_min"])
+    route.duration_hours = max(0.5, round(plan["duration_min"] / 60, 1))
+    route.formation_type = FormationType.mixed if payload.persist_order else route.formation_type
+    log_action(
+        db,
+        user,
+        "route_calculate",
+        {
+            "route_id": route_id,
+            "algorithm": plan["algorithm"],
+            "fallback": plan["fallback"],
+        },
+    )
+    db.commit()
+    return _route_plan_response(plan)
+
+
+@router.post("/{route_id}/generate-description", response_model=TourDescriptionOut)
+def generate_route_description(
+    route_id: int,
+    payload: TourDescriptionRequest | None = None,
+    db: Session = Depends(get_db),
+    user=Depends(require_rules(ROUTE_MANAGE)),
+) -> TourDescriptionOut:
+    route = db.query(Route).filter(Route.id == route_id).first()
+    if not route:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Маршрут не найден")
+
+    service_points = _route_points_for_service(route)
+    title = payload.title if payload else route.title
+    duration_min = payload.duration_min if payload and payload.duration_min is not None else route.estimated_duration_min
+    distance_km = payload.distance_km if payload and payload.distance_km is not None else route.estimated_length_km
+    constraints = payload.constraints if payload else None
+    if payload and payload.points:
+        service_points = [
+            RoutePointInput(name=point.name, lon=point.lon, lat=point.lat, facts=point.facts)
+            for point in payload.points
+        ]
+
+    service = TourDescriptionService()
+    try:
+        description = service.generate(
+            title=title,
+            points=service_points,
+            duration_min=duration_min,
+            distance_km=distance_km,
+            constraints=constraints,
+        )
+    except TourDescriptionError as exc:
+        return TourDescriptionOut(
+            description=route.description,
+            provider=service.provider,
+            model=service.model,
+            fallback=True,
+            message=str(exc),
+        )
+
+    route.description = description
+    log_action(db, user, "route_generate_description", {"route_id": route.id})
+    db.commit()
+    return TourDescriptionOut(
+        description=description,
+        provider=service.provider,
+        model=service.model,
+        fallback=False,
+        message="Описание сохранено как черновик маршрута.",
+    )
 
 
 @router.get("/{route_id}/dates", response_model=list[RouteDateOut])

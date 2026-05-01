@@ -12,11 +12,14 @@ const emptyRoute = {
   title: "",
   description: "",
   duration_hours: 3,
+  estimated_duration_min: null,
+  estimated_length_km: null,
   price_adult: 1500,
   price_child: "",
   price_group: "",
   max_participants: 15,
-  is_published: false
+  is_published: false,
+  formation_type: "manual"
 };
 
 const defaultPoint = {
@@ -80,6 +83,8 @@ export default function AdminRouteForm() {
   const [reviewActionId, setReviewActionId] = useState(null);
   const [rescheduleTarget, setRescheduleTarget] = useState(null);
   const [rescheduleValue, setRescheduleValue] = useState("");
+  const [calculationStatus, setCalculationStatus] = useState("idle");
+  const [generationStatus, setGenerationStatus] = useState("idle");
 
   useEffect(() => {
     if (!isEdit) {
@@ -95,11 +100,14 @@ export default function AdminRouteForm() {
           title: data.title,
           description: data.description,
           duration_hours: data.duration_hours,
+          estimated_duration_min: data.estimated_duration_min,
+          estimated_length_km: data.estimated_length_km,
           price_adult: data.price_adult,
           price_child: data.price_child || "",
           price_group: data.price_group || "",
           max_participants: data.max_participants,
-          is_published: data.is_published
+          is_published: data.is_published,
+          formation_type: data.formation_type || "manual"
         });
         setPoints(data.points.map((point, index) => ({ ...point, order_index: index })));
         setPhotos(data.photos.map((photo, index) => ({
@@ -265,7 +273,10 @@ export default function AdminRouteForm() {
     price_child: toNumberOrNull(route.price_child),
     price_group: toNumberOrNull(route.price_group),
     max_participants: Number(route.max_participants),
+    estimated_duration_min: route.estimated_duration_min,
+    estimated_length_km: route.estimated_length_km,
     is_published: publishFlag,
+    formation_type: route.formation_type || "manual",
     tariff_ids: tariffIds,
     points: points.map((point, index) => ({
       title: point.title,
@@ -313,6 +324,95 @@ export default function AdminRouteForm() {
         title: "Ошибка сохранения",
         message: err.message
       });
+    }
+  };
+
+  const refreshRouteDetail = async () => {
+    if (!isEdit) return;
+    const data = await apiFetch(`/api/routes/${id}`);
+    setRoute((prev) => ({
+      ...prev,
+      title: data.title,
+      description: data.description,
+      duration_hours: data.duration_hours,
+      estimated_duration_min: data.estimated_duration_min,
+      estimated_length_km: data.estimated_length_km,
+      formation_type: data.formation_type || prev.formation_type
+    }));
+    setPoints(data.points.map((point, index) => ({ ...point, order_index: index })));
+  };
+
+  const handleCalculateRoute = async (algorithm = "nearest_neighbor_2opt") => {
+    if (!isEdit) {
+      notify({
+        type: "error",
+        title: "Сначала сохраните маршрут",
+        message: "Расчет OSRM выполняется для уже созданного маршрута."
+      });
+      return;
+    }
+    setCalculationStatus("loading");
+    try {
+      const result = await apiFetch(`/api/routes/${id}/calculate`, {
+        method: "POST",
+        body: JSON.stringify({ algorithm, persist_order: true })
+      });
+      await refreshRouteDetail();
+      notify({
+        type: result.fallback ? "warning" : "success",
+        title: result.fallback ? "Маршрут рассчитан без OSRM" : "Маршрут рассчитан",
+        message: result.message || `${result.distance_km} км, ${Math.round(result.duration_min)} мин.`
+      });
+    } catch (err) {
+      notify({
+        type: "error",
+        title: "Ошибка расчета маршрута",
+        message: err.message
+      });
+    } finally {
+      setCalculationStatus("idle");
+    }
+  };
+
+  const handleGenerateDescription = async () => {
+    if (!isEdit) {
+      notify({
+        type: "error",
+        title: "Сначала сохраните маршрут",
+        message: "Описание генерируется для уже созданного маршрута."
+      });
+      return;
+    }
+    setGenerationStatus("loading");
+    try {
+      const result = await apiFetch(`/api/routes/${id}/generate-description`, {
+        method: "POST",
+        body: JSON.stringify({
+          title: route.title,
+          points: points.map((point) => ({
+            name: point.title,
+            lon: point.lng,
+            lat: point.lat,
+            facts: point.description
+          })),
+          duration_min: route.estimated_duration_min,
+          distance_km: route.estimated_length_km
+        })
+      });
+      setRoute((prev) => ({ ...prev, description: result.description }));
+      notify({
+        type: result.fallback ? "warning" : "success",
+        title: result.fallback ? "LLM недоступна" : "Описание сгенерировано",
+        message: result.message || "Черновик сохранен в поле описания."
+      });
+    } catch (err) {
+      notify({
+        type: "error",
+        title: "Ошибка генерации описания",
+        message: err.message
+      });
+    } finally {
+      setGenerationStatus("idle");
     }
   };
 
@@ -662,6 +762,55 @@ export default function AdminRouteForm() {
                 );
               })}
             </div>
+          </section>
+
+          <section className="editor-section">
+            <h3>Планирование маршрута и ИИ-описание</h3>
+            {!isEdit && <p>Сохраните маршрут, чтобы рассчитать порядок точек и сгенерировать описание.</p>}
+            {isEdit && (
+              <>
+                <div className="route-stats">
+                  <div>
+                    <span>OSRM-дистанция</span>
+                    <strong>{route.estimated_length_km ? `${Number(route.estimated_length_km).toFixed(2)} км` : "не рассчитана"}</strong>
+                  </div>
+                  <div>
+                    <span>OSRM-время</span>
+                    <strong>{route.estimated_duration_min ? `${route.estimated_duration_min} мин` : "не рассчитано"}</strong>
+                  </div>
+                  <div>
+                    <span>Тип формирования</span>
+                    <strong>{route.formation_type}</strong>
+                  </div>
+                </div>
+                <div className="form-actions form-actions--inline">
+                  <button
+                    className="button primary"
+                    type="button"
+                    onClick={() => handleCalculateRoute("nearest_neighbor_2opt")}
+                    disabled={points.length < 2 || calculationStatus === "loading"}
+                  >
+                    {calculationStatus === "loading" ? "Расчет..." : "Рассчитать через OSRM"}
+                  </button>
+                  <button
+                    className="button ghost"
+                    type="button"
+                    onClick={() => handleCalculateRoute("held_karp")}
+                    disabled={points.length < 2 || calculationStatus === "loading"}
+                  >
+                    Точный порядок
+                  </button>
+                  <button
+                    className="button ghost"
+                    type="button"
+                    onClick={handleGenerateDescription}
+                    disabled={points.length < 2 || generationStatus === "loading"}
+                  >
+                    {generationStatus === "loading" ? "Генерация..." : "Сгенерировать описание"}
+                  </button>
+                </div>
+              </>
+            )}
           </section>
 
           <section className="editor-section">

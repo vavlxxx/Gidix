@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip } from "react-leaflet";
 
 import { createMarkerIcon } from "./mapPins";
@@ -13,39 +13,18 @@ const typeLabels = {
   other: "Другое"
 };
 
-export default function RouteMap({ points, activePointKey }) {
+export default function RouteMap({ points, activePointKey, geometryGeojson }) {
   const hasPoints = Boolean(points?.length);
   const polyline = useMemo(() => (points || []).map((point) => [point.lat, point.lng]), [points]);
+  const routeLine = useMemo(() => {
+    const coordinates = geometryGeojson?.coordinates || geometryGeojson?.geometry?.coordinates;
+    if (!coordinates || !Array.isArray(coordinates)) {
+      return null;
+    }
+    return coordinates.map(([lng, lat]) => [lat, lng]);
+  }, [geometryGeojson]);
   const defaultIcon = useMemo(() => createMarkerIcon(), []);
   const activeIcon = useMemo(() => createMarkerIcon("route-marker--active"), []);
-  const [routeLine, setRouteLine] = useState(null);
-
-  useEffect(() => {
-    if (!points || points.length < 2) {
-      setRouteLine(null);
-      return;
-    }
-    const controller = new AbortController();
-    const coords = points.map((point) => `${point.lng},${point.lat}`).join(";");
-    fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`, {
-      signal: controller.signal
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        const geometry = data?.routes?.[0]?.geometry?.coordinates;
-        if (!geometry) {
-          setRouteLine(polyline);
-          return;
-        }
-        setRouteLine(geometry.map(([lng, lat]) => [lat, lng]));
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setRouteLine(polyline);
-        }
-      });
-    return () => controller.abort();
-  }, [points, polyline]);
 
   if (!hasPoints) {
     return <div className="map-placeholder">Карта появится после добавления точек.</div>;

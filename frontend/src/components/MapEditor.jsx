@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMapEvents } from "react-leaflet";
 
 import { createMarkerIcon } from "./mapPins";
@@ -27,34 +27,6 @@ export default function MapEditor({ points, onAddPoint }) {
   const center = points.length ? [points[0].lat, points[0].lng] : [54.7388, 55.9721];
   const polyline = useMemo(() => points.map((point) => [point.lat, point.lng]), [points]);
   const markerIcon = useMemo(() => createMarkerIcon(), []);
-  const [routeLine, setRouteLine] = useState(null);
-
-  useEffect(() => {
-    if (!points || points.length < 2) {
-      setRouteLine(null);
-      return;
-    }
-    const controller = new AbortController();
-    const coords = points.map((point) => `${point.lng},${point.lat}`).join(";");
-    fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`, {
-      signal: controller.signal
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        const geometry = data?.routes?.[0]?.geometry?.coordinates;
-        if (!geometry) {
-          setRouteLine(polyline);
-          return;
-        }
-        setRouteLine(geometry.map(([lng, lat]) => [lat, lng]));
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setRouteLine(polyline);
-        }
-      });
-    return () => controller.abort();
-  }, [points, polyline]);
 
   return (
     <MapContainer
@@ -77,11 +49,11 @@ export default function MapEditor({ points, onAddPoint }) {
       {polyline.length > 1 && (
         <>
           <Polyline
-            positions={routeLine || polyline}
+            positions={polyline}
             pathOptions={{ color: "#1b6dff", weight: 6, opacity: 0.2, lineCap: "round" }}
           />
           <Polyline
-            positions={routeLine || polyline}
+            positions={polyline}
             pathOptions={{ color: "#1b6dff", weight: 2, opacity: 0.9, lineCap: "round" }}
           />
         </>

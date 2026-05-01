@@ -3,11 +3,16 @@ from sqlalchemy.orm import Session
 from app.models import Rule, User, UserRole, UserRule
 
 ROUTE_MANAGE = "routes.manage"
+POINTS_MANAGE = "points.manage"
+EXCURSIONS_MANAGE = "excursions.manage"
 BOOKING_MANAGE = "bookings.manage"
+PAYMENTS_MANAGE = "payments.manage"
+GUIDE_ASSIGNMENTS_VIEW = "guide.assignments.view"
 USERS_MANAGE = "users.manage"
 RULES_MANAGE = "rules.manage"
 TARIFFS_MANAGE = "tariffs.manage"
 REVIEWS_MODERATE = "reviews.moderate"
+INTEGRATIONS_MANAGE = "integrations.manage"
 
 
 def user_has_rule(db: Session, user: User, code: str) -> bool:
@@ -26,8 +31,12 @@ def role_rule_ids(db: Session, role: UserRole) -> set[int]:
     if role == UserRole.superuser:
         return {rule_id for (rule_id,) in db.query(Rule.id).all()}
     roles = {role}
+    if role == UserRole.manager:
+        roles.add(UserRole.dispatcher)
+    if role == UserRole.accountant:
+        roles.add(UserRole.dispatcher)
     if role == UserRole.admin:
-        roles.add(UserRole.manager)
+        roles.update({UserRole.manager, UserRole.dispatcher, UserRole.accountant, UserRole.guide})
     return {
         rule_id
         for (rule_id,) in db.query(Rule.id).filter(Rule.associated_role.in_(roles)).all()
@@ -66,6 +75,8 @@ def assign_rule_to_role_users(db: Session, rule: Rule) -> None:
     target_roles = {rule.associated_role}
     if rule.associated_role == UserRole.manager:
         target_roles.add(UserRole.admin)
+    if rule.associated_role in {UserRole.dispatcher, UserRole.accountant, UserRole.guide}:
+        target_roles.add(UserRole.admin)
     user_ids = [
         user_id for (user_id,) in db.query(User.id).filter(User.role.in_(target_roles)).all()
     ]
@@ -85,6 +96,8 @@ def assign_rule_to_role_users(db: Session, rule: Rule) -> None:
 def remove_rule_from_role_users(db: Session, rule: Rule, role: UserRole) -> None:
     target_roles = {role}
     if role == UserRole.manager:
+        target_roles.add(UserRole.admin)
+    if role in {UserRole.dispatcher, UserRole.accountant, UserRole.guide}:
         target_roles.add(UserRole.admin)
     db.query(UserRule).join(User, User.id == UserRule.user_id).filter(
         User.role.in_(target_roles),

@@ -359,7 +359,11 @@ export default function RouteDetail() {
             <h2>Маршрут на карте</h2>
             <p>Отмеченные точки интереса и траектория экскурсии.</p>
           </div>
-          <RouteMap points={pointsWithKey} activePointKey={activePointKey} />
+          <RouteMap
+            points={pointsWithKey}
+            activePointKey={activePointKey}
+            geometryGeojson={route.geometry_geojson}
+          />
           {pointsWithKey.length > 0 && (
             <div className="point-summary">
               {pointsWithKey.map((point, index) => {

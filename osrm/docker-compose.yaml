@@ -1,0 +1,15 @@
+services:
+  osrm:
+    image: osrm/osrm-backend:latest
+    container_name: osrm-bashkortostan-foot
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./:/data
+    command: >
+      osrm-routed
+      --algorithm mld
+      --max-table-size 1000
+      --max-trip-size 1000
+      /data/bashkortostan_republic.osrm
+    restart: unless-stopped
