@@ -4,7 +4,7 @@ from datetime import date, time
 from decimal import Decimal
 from typing import Any
 
-from pydantic import EmailStr, Field, field_validator
+from pydantic import EmailStr, Field, field_validator, model_validator
 
 from src.schemas.base import BaseDTO
 
@@ -68,7 +68,12 @@ class RouteCreate(BaseDTO):
     description: str | None = None
     start_point_id: int | None = None
     finish_point_id: int | None = None
+    estimated_duration_min: int | None = None
+    estimated_length_km: Decimal | None = None
     formation_type: str = "manual"
+    optimization_algorithm: str | None = None
+    geometry_geojson: dict[str, Any] | None = None
+    route_metadata: dict[str, Any] | None = None
     points: list[RoutePointIn] = []
     active: bool = True
 
@@ -76,6 +81,15 @@ class RouteCreate(BaseDTO):
 class RouteUpdate(BaseDTO):
     title: str | None = None
     description: str | None = None
+    start_point_id: int | None = None
+    finish_point_id: int | None = None
+    estimated_duration_min: int | None = None
+    estimated_length_km: Decimal | None = None
+    formation_type: str | None = None
+    optimization_algorithm: str | None = None
+    geometry_geojson: dict[str, Any] | None = None
+    route_metadata: dict[str, Any] | None = None
+    points: list[RoutePointIn] | None = None
     active: bool | None = None
 
 
@@ -132,11 +146,6 @@ class ExcursionUpdate(BaseDTO):
     active: bool | None = None
 
 
-class ExcursionRead(ExcursionCreate):
-    id: int
-    route: RouteRead | None = None
-
-
 class GuideSessionCreate(BaseDTO):
     excursion_id: int
     guide_id: int | None = None
@@ -150,6 +159,21 @@ class GuideSessionRead(GuideSessionCreate):
     id: int
 
 
+class GuideSessionUpdate(BaseDTO):
+    excursion_id: int | None = None
+    guide_id: int | None = None
+    session_date: date | None = None
+    start_time: time | None = None
+    capacity: int | None = Field(None, ge=1, le=200)
+    status: str | None = None
+
+
+class ExcursionRead(ExcursionCreate):
+    id: int
+    route: RouteRead | None = None
+    sessions: list[GuideSessionRead] = []
+
+
 class BookingCreate(BaseDTO):
     excursion_id: int | None = None
     session_id: int | None = None
@@ -158,6 +182,15 @@ class BookingCreate(BaseDTO):
     customer_email: EmailStr | None = None
     participants_count: int = Field(1, ge=1, le=100)
     comment: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def empty_strings_to_none(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            for key in ("customer_phone", "customer_email", "comment"):
+                if data.get(key) == "":
+                    data[key] = None
+        return data
 
 
 class BookingStatusUpdate(BaseDTO):

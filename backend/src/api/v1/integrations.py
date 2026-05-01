@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from src.api.v1.dependencies.auth import require_any_role
 from src.api.v1.dependencies.db import DBDep
 from src.config import settings
-from src.models.domain import Route, RoutePoint
+from src.models.domain import Excursion, Route, RoutePoint
 from src.schemas.domain import GeneratedDescriptionRead, ImportOSMRequest, IntegrationHealth, PointRead
 from src.services.llm_description_service import LLMDescriptionService
 from src.services.osm_import_service import OSMImportService
@@ -35,4 +35,22 @@ async def generate_description(db: DBDep, route_id: int) -> GeneratedDescription
     result = await db.session.execute(select(Route).options(selectinload(Route.points).selectinload(RoutePoint.point)).where(Route.id == route_id))
     route = result.scalar_one()
     text, sources = await LLMDescriptionService(db).generate_for_route(route)
+    return GeneratedDescriptionRead(text=text, sources=sources)
+
+
+@router.post("/excursions/{excursion_id}/generate-description", response_model=GeneratedDescriptionRead, dependencies=[staff_dep])
+async def generate_excursion_description(db: DBDep, excursion_id: int) -> GeneratedDescriptionRead:
+    result = await db.session.execute(
+        select(Excursion)
+        .options(selectinload(Excursion.route).selectinload(Route.points).selectinload(RoutePoint.point))
+        .where(Excursion.id == excursion_id)
+    )
+    excursion = result.scalar_one_or_none()
+    if excursion is None:
+        raise HTTPException(status_code=404, detail="Excursion not found")
+    if excursion.route is None:
+        raise HTTPException(status_code=400, detail="Excursion has no route")
+    text, sources = await LLMDescriptionService(db).generate_for_route(excursion.route)
+    excursion.description = text
+    await db.commit()
     return GeneratedDescriptionRead(text=text, sources=sources)

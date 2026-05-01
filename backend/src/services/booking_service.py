@@ -24,7 +24,7 @@ class BookingService:
             session_id=data.session_id,
             excursion_id=data.excursion_id,
             customer_name=data.customer_name,
-            customer_phone=data.customer_phone,
+            customer_phone=data.customer_phone or None,
             customer_email=str(data.customer_email) if data.customer_email else None,
             participants_count=data.participants_count,
             total_price=base_price * data.participants_count,

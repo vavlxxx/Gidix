@@ -61,6 +61,8 @@ class RouteService:
                 "elapsed_seconds": optimization.elapsed_seconds,
                 "checked_variants": optimization.checked_variants,
                 "distance_matrix": distances,
+                "routing_source": route_data.get("source"),
+                "table_source": table.get("source"),
             },
         )
         self.db.session.add(route)
@@ -107,6 +109,7 @@ class RouteService:
                 response.raise_for_status()
                 data = response.json()
                 if data.get("code") == "Ok":
+                    data["source"] = "osrm"
                     return data
         except Exception:
             pass
@@ -115,6 +118,8 @@ class RouteService:
     async def _get_route(self, points: list[PointOfInterest]) -> dict[str, Any]:
         if not settings.enable_route_generation:
             return _fallback_route(points)
+        if len(points) > 40:
+            return await self._get_route_chunked(points)
         coordinates = _coordinates(points)
         params = {"overview": "full", "geometries": "geojson", "steps": "false", "annotations": "false"}
         url = f"{settings.osrm_base_url}/route/v1/{settings.osrm_profile}/{coordinates}?{urlencode(params)}"
@@ -125,10 +130,37 @@ class RouteService:
                 data = response.json()
                 if data.get("code") == "Ok" and data.get("routes"):
                     route = data["routes"][0]
-                    return {"geometry": route["geometry"], "distance": route["distance"], "duration": route["duration"]}
+                    return {"geometry": route["geometry"], "distance": route["distance"], "duration": route["duration"], "source": "osrm"}
         except Exception:
             pass
         return _fallback_route(points)
+
+    async def _get_route_chunked(self, points: list[PointOfInterest], chunk_size: int = 40) -> dict[str, Any]:
+        all_coordinates: list[list[float]] = []
+        total_distance = 0.0
+        total_duration = 0.0
+        start = 0
+        while start < len(points) - 1:
+            end = min(start + chunk_size, len(points))
+            chunk = points[start:end]
+            if len(chunk) < 2:
+                break
+            route = await self._get_route(chunk)
+            coords = route["geometry"]["coordinates"]
+            if all_coordinates:
+                coords = coords[1:]
+            all_coordinates.extend(coords)
+            total_distance += route["distance"]
+            total_duration += route["duration"]
+            start = end - 1
+        if not all_coordinates:
+            return _fallback_route(points)
+        return {
+            "geometry": {"type": "LineString", "coordinates": all_coordinates},
+            "distance": total_distance,
+            "duration": total_duration,
+            "source": "osrm_chunked",
+        }
 
 
 def find_best_order(matrix: list[list[float | None]], start_index: int, finish_index: int, algorithm: str) -> OptimizationResult:
@@ -294,7 +326,7 @@ def _fallback_table(points: list[PointOfInterest]) -> dict[str, Any]:
             duration_row.append(distance / 1.25)
         distances.append(distance_row)
         durations.append(duration_row)
-    return {"code": "Ok", "distances": distances, "durations": durations}
+    return {"code": "Ok", "distances": distances, "durations": durations, "source": "haversine_fallback"}
 
 
 def _fallback_route(points: list[PointOfInterest]) -> dict[str, Any]:
@@ -303,6 +335,7 @@ def _fallback_route(points: list[PointOfInterest]) -> dict[str, Any]:
         "geometry": {"type": "LineString", "coordinates": [[float(p.longitude), float(p.latitude)] for p in points]},
         "distance": distance,
         "duration": distance / 1.25,
+        "source": "haversine_fallback",
     }
 
 

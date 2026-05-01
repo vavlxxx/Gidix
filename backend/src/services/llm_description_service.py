@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 
-import httpx
+import ollama
 
 from src.config import settings
 from src.models.domain import GeneratedDescriptionSource, PointOfInterest, Route
@@ -64,17 +65,17 @@ class LLMDescriptionService:
     async def _ask_ollama(self, prompt: str) -> str | None:
         if settings.llm_provider != "ollama":
             return None
-        url = f"{settings.ollama_base_url.rstrip('/')}/api/chat"
-        payload = {
-            "model": settings.ollama_model,
-            "stream": False,
-            "messages": [{"role": "user", "content": prompt}],
-        }
         try:
-            async with httpx.AsyncClient(timeout=settings.llm_timeout_seconds) as client:
-                response = await client.post(url, json=payload)
-                response.raise_for_status()
-                data = response.json()
+            client = ollama.Client(host=settings.ollama_base_url)
+            data = await asyncio.wait_for(
+                asyncio.to_thread(
+                    client.chat,
+                    model=settings.ollama_model,
+                    messages=[{"role": "user", "content": prompt}],
+                    stream=False,
+                ),
+                timeout=settings.llm_timeout_seconds,
+            )
         except Exception:
             return None
         return data.get("message", {}).get("content")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
 from src.api.v1.dependencies.auth import require_any_role
@@ -54,8 +54,14 @@ async def update_route(db: DBDep, route_id: int, data: RouteUpdate) -> Route:
     route = await db.session.get(Route, route_id)
     if route is None:
         raise HTTPException(status_code=404, detail="Route not found")
-    for key, value in data.model_dump(exclude_unset=True).items():
+    payload = data.model_dump(exclude_unset=True, exclude={"points"})
+    for key, value in payload.items():
         setattr(route, key, value)
+    if data.points is not None:
+        await db.session.execute(delete(RoutePoint).where(RoutePoint.route_id == route_id))
+        await db.session.flush()
+        for item in data.points:
+            db.session.add(RoutePoint(route_id=route.id, **item.model_dump()))
     await db.commit()
     return await RouteService(db).get_route(route_id)
 
