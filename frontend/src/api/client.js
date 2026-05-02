@@ -1,4 +1,5 @@
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
+const API_ORIGIN = new URL(API_BASE, window.location.origin).origin;
 
 let accessToken = localStorage.getItem("gidix_access_token") || "";
 
@@ -23,13 +24,79 @@ async function parseResponse(response) {
 }
 
 function errorMessage(payload, fallback) {
-  if (!payload) return fallback;
-  if (typeof payload === "string") return payload;
-  if (typeof payload.detail === "string") return payload.detail;
+  if (!navigator.onLine) return "Нет подключения к интернету или локальному серверу.";
+  if (!payload) return readableStatus(fallback);
+  if (typeof payload === "string") return readableStatus(payload);
+  if (typeof payload.detail === "string") return readableStatus(payload.detail);
   if (Array.isArray(payload.detail)) {
-    return payload.detail.map((item) => `${item.loc?.join(".") || "field"}: ${item.msg}`).join("; ");
+    return payload.detail.map(formatValidationError).join(" ");
   }
-  return JSON.stringify(payload.detail || payload);
+  return "Не удалось выполнить действие. Проверьте поля и попробуйте ещё раз.";
+}
+
+function readableStatus(message) {
+  const known = {
+    "HTTP 400": "Запрос заполнен неверно. Проверьте данные и попробуйте ещё раз.",
+    "HTTP 401": "Нужно войти в аккаунт.",
+    "HTTP 403": "Недостаточно прав для этого действия.",
+    "HTTP 404": "Запрашиваемые данные не найдены.",
+    "HTTP 409": "Данные конфликтуют с уже сохранённой записью.",
+    "HTTP 422": "Проверьте обязательные поля и формат данных.",
+    "HTTP 500": "На сервере произошла ошибка. Попробуйте позже.",
+    "At least two points are required": "Для маршрута нужны минимум две точки.",
+    "Route not found": "Маршрут не найден.",
+    "Point not found": "Точка не найдена.",
+    "Excursion not found": "Экскурсия не найдена.",
+    "Booking not found": "Заявка не найдена.",
+    "Invalid credentials": "Неверный email или пароль.",
+    "User already exists": "Пользователь с таким email уже зарегистрирован."
+  };
+  return known[message] || message || "Не удалось выполнить действие.";
+}
+
+function formatValidationError(item) {
+  const field = fieldTitle(Array.isArray(item.loc) ? item.loc[item.loc.length - 1] : item.loc);
+  const msg = String(item.msg || "").toLowerCase();
+  if (msg.includes("field required") || msg.includes("missing")) return `Поле «${field}» обязательно.`;
+  if (msg.includes("valid email")) return "Введите корректный email.";
+  if (msg.includes("greater than or equal")) return `Поле «${field}» меньше допустимого значения.`;
+  if (msg.includes("less than or equal")) return `Поле «${field}» больше допустимого значения.`;
+  if (msg.includes("string too long")) return `Поле «${field}» слишком длинное.`;
+  return `Проверьте поле «${field}».`;
+}
+
+function fieldTitle(field) {
+  const titles = {
+    email: "Email",
+    password: "Пароль",
+    customer_name: "Имя",
+    customer_phone: "Телефон",
+    customer_email: "Email",
+    participants_count: "Количество участников",
+    excursion_id: "Экскурсия",
+    session_id: "Дата и время",
+    title: "Название",
+    name: "Название",
+    latitude: "Широта",
+    longitude: "Долгота",
+    base_price: "Цена",
+    duration_min: "Длительность",
+    max_participants: "Максимум участников",
+    point_ids: "Точки маршрута"
+  };
+  return titles[field] || "данные";
+}
+
+export function mediaUrl(value) {
+  if (!value) return "";
+  const normalized = String(value).replaceAll("\\", "/").trim();
+  if (/^(https?:)?\/\//i.test(normalized) || normalized.startsWith("data:") || normalized.startsWith("blob:")) return normalized;
+  const mediaIndex = normalized.indexOf("/media/");
+  if (mediaIndex >= 0) return `${API_ORIGIN}${normalized.slice(mediaIndex)}`;
+  if (normalized.startsWith("media/")) return `${API_ORIGIN}/${normalized}`;
+  if (normalized.startsWith("/media/")) return `${API_ORIGIN}${normalized}`;
+  if (normalized.startsWith("/")) return `${API_ORIGIN}${normalized}`;
+  return normalized;
 }
 
 export async function api(path, options = {}, retry = true) {
@@ -38,11 +105,16 @@ export async function api(path, options = {}, retry = true) {
   if (!headers.has("Content-Type") && options.body && !isForm) headers.set("Content-Type", "application/json");
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
 
-  const response = await fetch(`${API_BASE}/api${path}`, {
-    ...options,
-    headers,
-    credentials: "include"
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api${path}`, {
+      ...options,
+      headers,
+      credentials: "include"
+    });
+  } catch {
+    throw new Error("Сервер недоступен. Проверьте, что backend запущен.");
+  }
 
   if (response.status === 401 && retry && path !== "/auth/refresh") {
     const refreshed = await authApi.refresh().catch(() => null);
@@ -77,6 +149,8 @@ export const excursionsApi = {
 export const bookingsApi = {
   create: (data) => api("/bookings", { method: "POST", body: JSON.stringify(data) }),
   list: () => api("/bookings"),
+  updateStatus: (id, data) => api(`/bookings/${id}/status`, { method: "PUT", body: JSON.stringify(data) }),
+  delete: (id) => api(`/bookings/${id}`, { method: "DELETE" }),
   pay: (id) => api(`/bookings/${id}/mock-payment`, { method: "POST" })
 };
 

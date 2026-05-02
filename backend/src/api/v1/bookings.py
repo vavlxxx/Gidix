@@ -67,6 +67,16 @@ async def update_booking_status(db: DBDep, booking_id: int, data: BookingStatusU
     return booking
 
 
+@router.delete("/{booking_id}", dependencies=[staff_dep])
+async def delete_booking(db: DBDep, booking_id: int) -> dict[str, str]:
+    booking = await db.session.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    await db.session.delete(booking)
+    await db.commit()
+    return {"detail": "Booking deleted"}
+
+
 @router.post("/{booking_id}/mock-payment", response_model=BookingRead)
 async def mock_payment(db: DBDep, booking_id: int) -> Booking:
     try:
