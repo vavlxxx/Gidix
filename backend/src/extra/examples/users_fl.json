@@ -1,0 +1,13 @@
+[
+    { "first_name": "Ivan",     "last_name": "Petrov" },
+    { "first_name": "Maria",    "last_name": "Ivanova" },
+    { "first_name": "Sergey",   "last_name": "Sidorov" },
+    { "first_name": "Olga",     "last_name": "Smirnova" },
+    { "first_name": "Dmitry",   "last_name": "Kuznetsov" },
+    { "first_name": "Anna",     "last_name": "Popova" },
+    { "first_name": "Pavel",    "last_name": "Morozov" },
+    { "first_name": "Elena",    "last_name": "Solovyova" },
+    { "first_name": "Nikita",   "last_name": "Fedorov" },
+    { "first_name": "Victor",       "last_name": "Reznov" }
+  ]
+  

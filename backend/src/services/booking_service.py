@@ -35,6 +35,7 @@ class BookingService:
         self.db.session.add(booking)
         await self.db.commit()
         await self.db.session.refresh(booking)
+        booking.message = "Заявка принята. Мы проверим доступность мест и свяжемся с вами по указанным контактам."
         return booking
 
     async def confirm_mock_payment(self, booking_id: int) -> Booking:

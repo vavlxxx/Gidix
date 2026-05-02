@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from src.api.v1.dependencies.auth import require_any_role
 from src.api.v1.dependencies.db import DBDep
 from src.models.domain import Route, RoutePoint
-from src.schemas.domain import RouteCreate, RouteGenerateRequest, RouteRead, RouteUpdate
+from src.schemas.domain import RouteCreate, RouteGenerateRequest, RoutePointIn, RouteRead, RouteUpdate
 from src.services.route_service import RouteService
 
 router = APIRouter(prefix="/routes", tags=["routes"])
@@ -29,6 +29,9 @@ async def create_route(db: DBDep, data: RouteCreate) -> Route:
     await db.session.flush()
     for item in data.points:
         db.session.add(RoutePoint(route_id=route.id, **item.model_dump()))
+    await db.session.flush()
+    if len(data.points) >= 2:
+        await _apply_ordered_geometry(db, route, data.points)
     await db.commit()
     return await RouteService(db).get_route(route.id)
 
@@ -62,6 +65,13 @@ async def update_route(db: DBDep, route_id: int, data: RouteUpdate) -> Route:
         await db.session.flush()
         for item in data.points:
             db.session.add(RoutePoint(route_id=route.id, **item.model_dump()))
+        await db.session.flush()
+        if len(data.points) >= 2:
+            await _apply_ordered_geometry(db, route, data.points)
+        else:
+            route.geometry_geojson = None
+            route.estimated_length_km = None
+            route.estimated_duration_min = None
     await db.commit()
     return await RouteService(db).get_route(route_id)
 
@@ -74,3 +84,19 @@ async def delete_route(db: DBDep, route_id: int) -> dict[str, str]:
     await db.session.delete(route)
     await db.commit()
     return {"detail": "Route deleted"}
+
+
+async def _apply_ordered_geometry(db: DBDep, route: Route, points: list[RoutePointIn]) -> None:
+    ordered = sorted(points, key=lambda item: item.position)
+    ordered_points = await RouteService(db)._load_points([item.point_id for item in ordered])
+    route_data = await RouteService(db)._get_route(ordered_points)
+    route.start_point_id = ordered_points[0].id
+    route.finish_point_id = ordered_points[-1].id
+    route.estimated_duration_min = round(route_data["duration"] / 60)
+    route.estimated_length_km = round(route_data["distance"] / 1000, 2)
+    route.geometry_geojson = route_data["geometry"]
+    route.route_metadata = {
+        **(route.route_metadata or {}),
+        "geometry_format": "geojson",
+        "routing_source": route_data.get("source"),
+    }

@@ -157,6 +157,7 @@ class GuideSessionCreate(BaseDTO):
 
 class GuideSessionRead(GuideSessionCreate):
     id: int
+    available_places: int | None = None
 
 
 class GuideSessionUpdate(BaseDTO):
@@ -203,6 +204,9 @@ class BookingRead(BaseDTO):
     client_id: int | None = None
     excursion_id: int | None = None
     session_id: int | None = None
+    excursion_title: str | None = None
+    session_date: date | None = None
+    start_time: time | None = None
     customer_name: str
     customer_phone: str | None = None
     customer_email: EmailStr | None = None
@@ -211,6 +215,7 @@ class BookingRead(BaseDTO):
     status: str
     payment_status: str
     comment: str | None = None
+    message: str | None = None
 
 
 class ReviewCreate(BaseDTO):

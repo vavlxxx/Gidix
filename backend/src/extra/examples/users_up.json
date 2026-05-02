@@ -1,0 +1,13 @@
+[
+    { "username": "admin123",      "password": "admin12345" },
+    { "username": "superuser01",   "password": "SuperPass999" },
+    { "username": "john_doe_88",   "password": "jd_secure_2024" },
+    { "username": "maria_ivanova", "password": "mariaPass123" },
+    { "username": "dev_backend01", "password": "backendStrong1" },
+    { "username": "frontend_guru", "password": "Front2024_ui" },
+    { "username": "data_science9", "password": "MLmodel_777" },
+    { "username": "qa_engineer01", "password": "qaTests_2024" },
+    { "username": "product_owner", "password": "prodOwner_42" },
+    { "username": "support_user1", "password": "supportLine11" }
+  ]
+  
