@@ -4,12 +4,13 @@ import { ArrowLeft, Save, Sparkles } from "lucide-react";
 import { adminApi, excursionsApi, mediaUrl } from "../../api/client";
 import { Button } from "../../components/ui/Button";
 import { FormField } from "../../components/ui/FormField";
+import { MultiImageUploadField } from "../../components/ui/MultiImageUploadField";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/ui/State";
 import { UploadField } from "../../components/ui/UploadField";
 import { useToast } from "../../context/ToastContext";
 import { useAdminData } from "../../hooks/useAdminData";
-import { cleanPayload, coverForExcursion, placeholderImage } from "../../utils/format";
+import { cleanPayload, coverForExcursion, mediaGallery, placeholderImage } from "../../utils/format";
 
 const empty = {
   title: "Новая экскурсия",
@@ -20,6 +21,7 @@ const empty = {
   meeting_point: "",
   max_participants: 20,
   image_url: "",
+  media_urls: [],
   active: true
 };
 
@@ -29,7 +31,6 @@ export function ExcursionEditorPage() {
   const notify = useToast();
   const { state, loading: listsLoading } = useAdminData();
   const [form, setForm] = React.useState(empty);
-  const [galleryText, setGalleryText] = React.useState("");
   const [loading, setLoading] = React.useState(Boolean(id));
   const [saving, setSaving] = React.useState(false);
   const [generating, setGenerating] = React.useState(false);
@@ -50,12 +51,12 @@ export function ExcursionEditorPage() {
           ...item,
           route_id: item.route_id || "",
           image_url: item.image_url || "",
+          media_urls: mediaGallery(item),
           base_price: item.base_price || 0,
           duration_min: item.duration_min || item.route?.estimated_duration_min || empty.duration_min,
           max_participants: item.max_participants || empty.max_participants,
           active: item.active !== false
         });
-        setGalleryText([item.image_url, ...(item.route?.points || []).map((link) => link.point?.image_url)].filter(Boolean).join("\n"));
       } catch (err) {
         setError(err.message || "Не удалось загрузить экскурсию.");
       } finally {
@@ -66,13 +67,11 @@ export function ExcursionEditorPage() {
   }, [id]);
 
   const selectedRoute = state.routes.find((route) => String(route.id) === String(form.route_id));
-  const previewImages = galleryText.split(/\n|,/).map((value) => value.trim()).filter(Boolean);
+  const previewImages = form.media_urls?.length ? form.media_urls : [form.image_url].filter(Boolean);
   const cover = form.image_url || previewImages[0] || coverForExcursion({ ...form, route: selectedRoute });
 
   async function upload(file) {
-    const asset = await adminApi.upload(file);
-    setForm((prev) => ({ ...prev, image_url: asset.url }));
-    setGalleryText((prev) => [asset.url, prev].filter(Boolean).join("\n"));
+    return adminApi.upload(file);
   }
 
   async function generateDescription() {
@@ -107,6 +106,7 @@ export function ExcursionEditorPage() {
         meeting_point: form.meeting_point,
         max_participants: Number(form.max_participants || 1),
         image_url: form.image_url || gallery[0] || null,
+        media_urls: gallery,
         active: Boolean(form.active)
       });
       const saved = id ? await adminApi.updateExcursion(id, payload) : await adminApi.createExcursion(payload);
@@ -128,7 +128,7 @@ export function ExcursionEditorPage() {
         eyebrow="Экскурсии"
         title={id ? "Редактирование экскурсии" : "Новая экскурсия"}
         description="Отдельная страница для программы, маршрута, расписания, цены и клиентского описания."
-        actions={<Button as="link" to="/admin/excursions" tone="neutral"><ArrowLeft size={17} /> К списку</Button>}
+        actions={<Button as="link" to="/" tone="neutral"><ArrowLeft size={17} /> К каталогу</Button>}
       />
 
       <section className="editor-layout">
@@ -153,11 +153,8 @@ export function ExcursionEditorPage() {
             </FormField>
           </div>
           <FormField label="Место встречи"><input value={form.meeting_point || ""} onChange={(event) => setForm({ ...form, meeting_point: event.target.value })} placeholder="Например: у главного входа в музей" /></FormField>
-          <UploadField label="Главное фото экскурсии" value={form.image_url} onChange={(value) => setForm({ ...form, image_url: value })} onUpload={upload} />
-          <FormField label="Фотографии для слайдера">
-            <textarea value={galleryText} onChange={(event) => setGalleryText(event.target.value)} placeholder="Каждую ссылку укажите с новой строки. Первое фото используется как обложка." />
-            <small>В текущей схеме экскурсии сохраняется главное фото; дополнительные фотографии показываются в предпросмотре редактора и могут быть перенесены в медиатеку после подключения сущности MediaAsset.</small>
-          </FormField>
+          <UploadField label="Главное фото экскурсии" value={form.image_url} onChange={(value) => setForm({ ...form, image_url: value })} onUpload={async (file) => { const asset = await upload(file); setForm((prev) => ({ ...prev, image_url: asset.url, media_urls: [...new Set([asset.url, ...(prev.media_urls || [])])] })); }} />
+          <MultiImageUploadField label="Фотографии экскурсии" values={form.media_urls || []} onChange={(media_urls) => setForm({ ...form, media_urls, image_url: form.image_url || media_urls[0] || "" })} onUpload={upload} />
           <div className="actions-row">
             <Button type="submit" tone="primary" disabled={saving}><Save size={17} /> {saving ? "Сохраняем..." : "Сохранить экскурсию"}</Button>
             <Button as="link" to="/admin/sessions" tone="neutral">Перейти к расписанию</Button>

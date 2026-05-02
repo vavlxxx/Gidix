@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { CalendarDays, Clock3, Edit3, Search, SlidersHorizontal, WalletCards } from "lucide-react";
+import { CalendarDays, Clock3, Edit3, Plus, Search, SlidersHorizontal, WalletCards } from "lucide-react";
 import { mediaUrl } from "../../api/client";
 import { EmptyState, ErrorState, LoadingState } from "../../components/ui/State";
 import { useAuth } from "../../context/AuthContext";
@@ -9,7 +9,7 @@ import { coverForExcursion, formatDate, minutes, money, nearestSession } from ".
 
 export function CatalogPage() {
   const auth = useAuth();
-  const { excursions, loading, error } = useExcursions();
+  const { excursions, loading, error } = useExcursions(!auth.isStaff);
   const [query, setQuery] = React.useState("");
   const [withDatesOnly, setWithDatesOnly] = React.useState(false);
 
@@ -39,6 +39,7 @@ export function CatalogPage() {
           <input type="checkbox" checked={withDatesOnly} onChange={(event) => setWithDatesOnly(event.target.checked)} />
           <SlidersHorizontal size={17} aria-hidden /> Только с доступными датами
         </label>
+        {auth.isStaff && <Link className="button button--primary" to="/admin/excursions/new"><Plus size={17} /> Новая экскурсия</Link>}
       </section>
 
       {loading && <LoadingState text="Загрузка каталога экскурсий" />}
@@ -57,8 +58,13 @@ export function CatalogPage() {
                 <div className="card-tags" aria-label="Параметры экскурсии">
                   <span><WalletCards size={15} /> {money(item.base_price)}</span>
                   <span><Clock3 size={15} /> {minutes(item.duration_min || item.route?.estimated_duration_min)}</span>
-                  <span><CalendarDays size={15} /> {next ? formatDate(next.session_date, { day: "2-digit", month: "short" }) : "даты уточняются"}</span>
                 </div>
+                <div className="next-date-label">
+                  <CalendarDays size={15} />
+                  <span>Ближайшая доступная запись</span>
+                  <strong>{next ? `${formatTimeSafe(next.start_time)} · ${formatDate(next.session_date, { day: "2-digit", month: "long" })}` : "даты уточняются"}</strong>
+                </div>
+                {auth.isStaff && item.active === false && <span className="status-pill status-pill--cancelled">Не опубликована</span>}
               </div>
               <div className="excursion-card__actions">
                 <Link to={`/excursions/${item.id}`}>Подробнее</Link>
@@ -71,4 +77,8 @@ export function CatalogPage() {
       </section>
     </div>
   );
+}
+
+function formatTimeSafe(value) {
+  return value ? String(value).slice(0, 5) : "время уточняется";
 }

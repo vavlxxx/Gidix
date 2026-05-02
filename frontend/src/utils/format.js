@@ -22,7 +22,7 @@ export function km(value) {
 }
 
 export function coverForExcursion(item) {
-  return item?.image_url || item?.route?.route_metadata?.cover_image_url || firstPointImage(item?.route) || placeholderImage;
+  return mediaGallery(item)[0] || item?.image_url || item?.route?.route_metadata?.cover_image_url || firstPointImage(item?.route) || placeholderImage;
 }
 
 export function firstPointImage(route) {
@@ -42,6 +42,21 @@ export function routeLine(route) {
       .map((link) => [Number(link.point.latitude), Number(link.point.longitude)]),
     source: "manual"
   };
+}
+
+export function mediaGallery(entity) {
+  const raw = [
+    ...(Array.isArray(entity?.media_urls) ? entity.media_urls : []),
+    ...(Array.isArray(entity?.extra?.media_urls) ? entity.extra.media_urls : []),
+    ...(Array.isArray(entity?.route_metadata?.media_urls) ? entity.route_metadata.media_urls : []),
+    ...(entity?.image_url ? [entity.image_url] : []),
+    ...(entity?.route?.route_metadata?.cover_image_url ? [entity.route.route_metadata.cover_image_url] : [])
+  ];
+  return [...new Set(raw.map((item) => String(item || "").trim()).filter(Boolean))];
+}
+
+export function parseMediaText(text) {
+  return [...new Set(String(text || "").split(/\n|,/).map((value) => value.trim()).filter(Boolean))];
 }
 
 export function availablePlacesTotal(sessions, fallback) {

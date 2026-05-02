@@ -42,6 +42,7 @@ async def list_public_excursion_sessions(db: DBDep, excursion_id: int) -> list[G
 
 @router.post("/sessions", response_model=GuideSessionRead, dependencies=[guide_dep])
 async def create_session(db: DBDep, data: GuideSessionCreate) -> GuideSession:
+    await _ensure_unique_session(db, data.excursion_id, data.session_date, data.start_time)
     session = GuideSession(**data.model_dump())
     db.session.add(session)
     await db.commit()
@@ -67,6 +68,10 @@ async def update_session(db: DBDep, session_id: int, data: GuideSessionUpdate) -
     session = await db.session.get(GuideSession, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
+    next_excursion_id = data.excursion_id if data.excursion_id is not None else session.excursion_id
+    next_date = data.session_date if data.session_date is not None else session.session_date
+    next_time = data.start_time if data.start_time is not None else session.start_time
+    await _ensure_unique_session(db, next_excursion_id, next_date, next_time, exclude_id=session_id)
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(session, key, value)
     await db.commit()
@@ -95,3 +100,16 @@ def _attach_available_places(session: GuideSession) -> None:
         if booking.status not in {"cancelled", "rejected"}
     )
     session.available_places = max(session.capacity - booked, 0)
+
+
+async def _ensure_unique_session(db: DBDep, excursion_id, session_date, start_time, exclude_id: int | None = None) -> None:
+    query = select(GuideSession).where(
+        GuideSession.excursion_id == excursion_id,
+        GuideSession.session_date == session_date,
+        GuideSession.start_time == start_time,
+    )
+    if exclude_id is not None:
+        query = query.where(GuideSession.id != exclude_id)
+    result = await db.session.execute(query)
+    if result.scalar_one_or_none() is not None:
+        raise HTTPException(status_code=409, detail="Session time already exists")

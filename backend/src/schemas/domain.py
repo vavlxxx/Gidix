@@ -49,6 +49,7 @@ class PointUpdate(BaseDTO):
     longitude: float | None = Field(None, ge=-180, le=180)
     visit_duration_min: int | None = Field(None, ge=1, le=480)
     image_url: str | None = None
+    extra: dict[str, Any] | None = None
     active: bool | None = None
 
 
@@ -122,6 +123,13 @@ class RouteGenerateRequest(BaseDTO):
     algorithm: str | None = None
 
 
+class RoutePreviewRead(BaseDTO):
+    geometry_geojson: dict[str, Any] | None = None
+    estimated_duration_min: int | None = None
+    estimated_length_km: Decimal | None = None
+    points: list[RoutePointIn] = []
+
+
 class ExcursionCreate(BaseDTO):
     title: str
     description: str | None = None
@@ -129,6 +137,7 @@ class ExcursionCreate(BaseDTO):
     base_price: Decimal = Decimal("0.00")
     duration_min: int | None = None
     image_url: str | None = None
+    media_urls: list[str] | None = None
     meeting_point: str | None = None
     max_participants: int = Field(20, ge=1, le=200)
     active: bool = True
@@ -141,6 +150,7 @@ class ExcursionUpdate(BaseDTO):
     base_price: Decimal | None = None
     duration_min: int | None = None
     image_url: str | None = None
+    media_urls: list[str] | None = None
     meeting_point: str | None = None
     max_participants: int | None = Field(None, ge=1, le=200)
     active: bool | None = None

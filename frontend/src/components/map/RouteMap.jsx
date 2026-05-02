@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap } from "react-leaflet";
 import { mediaUrl } from "../../api/client";
-import { placeholderImage, routeLine, sortedRoutePoints } from "../../utils/format";
+import { mediaGallery, placeholderImage, routeLine, sortedRoutePoints } from "../../utils/format";
 import { pointIcon, tileAttribution, tileUrl } from "../../utils/map";
 
 export function RouteMap({ route, excursion, highlightedPointId, className = "route-map" }) {
@@ -29,7 +29,7 @@ export function RouteMap({ route, excursion, highlightedPointId, className = "ro
             <Tooltip>{index + 1}. {link.point.name}</Tooltip>
             <Popup>
               <article className="map-popup">
-                <img src={mediaUrl(link.point.image_url || placeholderImage)} alt="" />
+                <PopupCarousel images={mediaGallery(link.point).length ? mediaGallery(link.point) : [placeholderImage]} />
                 <strong>{link.point.name}</strong>
                 <p>{link.point.short_description || link.note || "Точка маршрута"}</p>
                 {excursion && <Link className="popup-link" to={`/excursions/${excursion.id}`}>Открыть экскурсию</Link>}
@@ -40,6 +40,16 @@ export function RouteMap({ route, excursion, highlightedPointId, className = "ro
       })}
     </MapContainer>
   );
+}
+
+function PopupCarousel({ images }) {
+  const [index, setIndex] = React.useState(0);
+  React.useEffect(() => {
+    if (images.length < 2) return undefined;
+    const timer = window.setInterval(() => setIndex((current) => (current + 1) % images.length), 2000);
+    return () => window.clearInterval(timer);
+  }, [images.length]);
+  return <img src={mediaUrl(images[index] || placeholderImage)} alt="" />;
 }
 
 export function MapLegend() {

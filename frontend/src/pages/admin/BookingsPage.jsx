@@ -56,8 +56,7 @@ export function BookingsPage() {
     { key: "excursion", title: "Экскурсия", render: (row) => row.excursion_title || row.excursion_id || "—" },
     { key: "contacts", title: "Контакты", render: (row) => row.customer_phone || row.customer_email || "—" },
     { key: "date", title: "Дата", render: (row) => row.session_date ? `${formatDate(row.session_date)} ${formatTime(row.start_time)}` : "—" },
-    { key: "status", title: "Статус", render: (row) => <><StatusPill status={row.status} /> <StatusPill status={row.payment_status} type="payment" /></> },
-    { key: "next", title: "Что дальше", render: (row) => nextAction(row) }
+    { key: "status", title: "Статус", render: (row) => <><StatusPill status={row.status} /> <StatusPill status={row.payment_status} type="payment" /></> }
   ];
 
   return (
@@ -100,10 +99,6 @@ export function BookingsPage() {
               <div><dt>Участники</dt><dd>{selected.participants_count}</dd></div>
               <div><dt>Комментарий</dt><dd>{selected.comment || "—"}</dd></div>
             </dl>
-            <section className="next-box">
-              <h3>Что дальше?</h3>
-              <p>{nextAction(selected)}</p>
-            </section>
             <div className="drawer-actions">
               <Button type="button" tone="primary" onClick={() => update(selected, { status: "confirmed" }, "Заявка подтверждена.")}><CheckCircle2 size={17} /> Подтвердить</Button>
               <Button type="button" tone="neutral" onClick={() => update(selected, { status: "checking" })}><UserCheck size={17} /> Проверяется</Button>
@@ -124,13 +119,4 @@ export function BookingsPage() {
       </Drawer>
     </div>
   );
-}
-
-function nextAction(booking) {
-  if (booking.status === "cancelled") return "Заявка отменена. Действий не требуется.";
-  if (booking.status === "completed") return "Экскурсия проведена. Можно запросить отзыв.";
-  if (booking.payment_status === "pending" && booking.status === "confirmed") return "Ожидается оплата или подтверждение бухгалтера.";
-  if (booking.status === "pending") return "Проверить контакты клиента и подтвердить заявку.";
-  if (booking.status === "checking") return "Связаться с клиентом и уточнить детали.";
-  return "Назначить экскурсовода и подготовить маршрутное задание.";
 }

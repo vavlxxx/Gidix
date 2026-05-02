@@ -88,6 +88,7 @@ class Excursion(Base):
     base_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
     duration_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    media_urls: Mapped[list | None] = mapped_column(JSON, nullable=True)
     meeting_point: Mapped[str | None] = mapped_column(String(500), nullable=True)
     max_participants: Mapped[int] = mapped_column(Integer, default=20)
     active: Mapped[bool] = mapped_column(Boolean, default=True)

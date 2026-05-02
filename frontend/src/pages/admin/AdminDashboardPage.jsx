@@ -20,7 +20,7 @@ export function AdminDashboardPage() {
       <section className="dashboard-grid">
         <Metric icon={<CreditCard />} value={newBookings.length} label="новые заявки" to="/admin/bookings" />
         <Metric icon={<CalendarDays />} value={upcoming.length} label="ближайшие сеансы" to="/admin/sessions" />
-        <Metric icon={<Ticket />} value={state.excursions.length} label="экскурсии" to="/admin/excursions" />
+        <Metric icon={<Ticket />} value={state.excursions.length} label="экскурсии" to="/" />
         <Metric icon={<Route />} value={state.routes.length} label="маршруты" to="/admin/routes" />
       </section>
       <section className="admin-columns">

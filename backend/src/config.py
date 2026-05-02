@@ -105,7 +105,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(30, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     refresh_token_expire_days: int = Field(30, alias="REFRESH_TOKEN_EXPIRE_DAYS")
 
-    media_dir: Path = Field(BASE_DIR / "media", alias="MEDIA_DIR")
+    media_dir: Path = Field(BASE_DIR / "uploads", alias="MEDIA_DIR")
     logs_dir: Path = Field(BASE_DIR / "logs", alias="LOGS_DIR")
 
     enable_route_generation: bool = Field(True, alias="ENABLE_ROUTE_GENERATION")

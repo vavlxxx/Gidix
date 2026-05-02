@@ -1,13 +1,14 @@
 import React from "react";
 import { useParams } from "react-router-dom";
-import { CalendarCheck, CheckCircle2, Clock3, Users, WalletCards } from "lucide-react";
+import { CalendarCheck, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Users, WalletCards } from "lucide-react";
 import { adminApi, bookingsApi, excursionsApi, mediaUrl } from "../../api/client";
 import { RouteMap, MapLegend } from "../../components/map/RouteMap";
 import { Button } from "../../components/ui/Button";
 import { FormField } from "../../components/ui/FormField";
+import { MasonryGallery } from "../../components/ui/MasonryGallery";
 import { EmptyState, ErrorState, LoadingState, SuccessState } from "../../components/ui/State";
 import { useToast } from "../../context/ToastContext";
-import { availablePlacesTotal, cleanPayload, formatDate, formatTime, minutes, money, placeholderImage, sortedRoutePoints } from "../../utils/format";
+import { availablePlacesTotal, cleanPayload, formatDate, formatTime, mediaGallery, minutes, money, placeholderImage, sortedRoutePoints } from "../../utils/format";
 
 const emptyForm = { session_id: "", participants_count: 1, customer_name: "", customer_phone: "", customer_email: "", comment: "" };
 
@@ -21,7 +22,7 @@ export function ExcursionDetailPage() {
   const [form, setForm] = React.useState(emptyForm);
   const [success, setSuccess] = React.useState(null);
   const [submitting, setSubmitting] = React.useState(false);
-  const [heroIndex, setHeroIndex] = React.useState(0);
+  const [calendarMonth, setCalendarMonth] = React.useState(startOfMonth(new Date()));
 
   React.useEffect(() => {
     async function load() {
@@ -48,15 +49,9 @@ export function ExcursionDetailPage() {
   const routePoints = sortedRoutePoints(item?.route);
   const nearest = sessions[0];
   const heroImages = React.useMemo(() => {
-    const images = [item?.image_url, ...(routePoints || []).map((link) => link.point?.image_url)].filter(Boolean);
+    const images = [...mediaGallery(item), ...(routePoints || []).flatMap((link) => mediaGallery(link.point))].filter(Boolean);
     return images.length ? images : [placeholderImage];
-  }, [item?.image_url, routePoints]);
-
-  React.useEffect(() => {
-    if (heroImages.length < 2) return undefined;
-    const timer = window.setInterval(() => setHeroIndex((index) => (index + 1) % heroImages.length), 2000);
-    return () => window.clearInterval(timer);
-  }, [heroImages.length]);
+  }, [item, routePoints]);
 
   function setDate(date) {
     const first = sessions.find((session) => session.session_date === date);
@@ -89,7 +84,8 @@ export function ExcursionDetailPage() {
 
   return (
     <article className="excursion-detail">
-      <section className="detail-hero detail-hero--photo" style={{ "--hero-image": `url(${mediaUrl(heroImages[heroIndex] || placeholderImage)})` }}>
+      <section className="detail-hero detail-hero--photo">
+        <HeroCarouselBackground images={heroImages} />
         <div className="detail-hero__content">
           <span className="eyebrow">Карточка экскурсии</span>
           <h1>{item.title}</h1>
@@ -100,6 +96,21 @@ export function ExcursionDetailPage() {
             <span><CalendarCheck size={17} /> {nearest ? formatDate(nearest.session_date, { day: "2-digit", month: "short" }) : "дат пока нет"}</span>
           </div>
         </div>
+      </section>
+
+      <section className="detail-story-section">
+        <div className="detail-story detail-story--single">
+          <div>
+            <div className="section-header">
+              <div>
+                <h2>Описание экскурсии</h2>
+                <p>{item.meeting_point ? `Место встречи: ${item.meeting_point}` : "Место встречи уточнит менеджер после подтверждения заявки."}</p>
+              </div>
+            </div>
+            <p className="detail-description">{item.description || item.route?.description || "Описание экскурсии будет уточнено менеджером."}</p>
+          </div>
+        </div>
+        <MasonryGallery images={heroImages} />
       </section>
 
       <section className="detail-map-section">
@@ -140,36 +151,50 @@ export function ExcursionDetailPage() {
           />
         ) : (
           <form className="booking-steps" onSubmit={submit}>
-            <div className="booking-step">
-              <strong><CalendarCheck size={18} /> Шаг 1 — дата</strong>
-              <div className="choice-grid">
-                {dates.map((date) => <button type="button" key={date} className={date === selectedDate ? "is-active" : ""} onClick={() => setDate(date)}>{formatDate(date, { day: "2-digit", month: "long" })}</button>)}
+            <div className="booking-calendar-panel">
+              <div className="booking-calendar">
+                <div className="calendar-head">
+                  <button type="button" aria-label="Предыдущий месяц" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}><ChevronLeft size={18} /></button>
+                  <h3>{formatDate(calendarMonth, { month: "long", year: "numeric" })}</h3>
+                  <button type="button" aria-label="Следующий месяц" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}><ChevronRight size={18} /></button>
+                </div>
+                <div className="calendar-grid calendar-grid--weekdays">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}</div>
+                <div className="calendar-grid">
+                  {calendarDays(calendarMonth).map((day) => {
+                    const date = isoDate(day);
+                    const daySessions = sessions.filter((session) => session.session_date === date);
+                    return (
+                      <button type="button" key={date} disabled={!daySessions.length} className={`${date === selectedDate ? "is-active" : ""} ${day.getMonth() !== calendarMonth.getMonth() ? "is-muted" : ""}`} onClick={() => setDate(date)}>
+                        <strong>{day.getDate()}</strong>
+                        {!!daySessions.length && <span>{daySessions.length} время</span>}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               {!dates.length && <EmptyState title="Дат пока нет" text="Оставьте заявку позже, когда менеджер опубликует расписание." />}
-            </div>
-            <div className="booking-step">
-              <strong>Шаг 2 — время</strong>
-              <div className="choice-grid">
+              <div className="time-slots">
+                <strong>Доступное время</strong>
                 {times.map((session) => <button type="button" key={session.id} className={String(session.id) === String(form.session_id) ? "is-active" : ""} onClick={() => setForm({ ...form, session_id: String(session.id) })}>{formatTime(session.start_time)} · {session.available_places ?? session.capacity} мест</button>)}
+                {!times.length && <span>Выберите день с доступной записью.</span>}
               </div>
             </div>
-            <div className="booking-step">
-              <strong><Users size={18} /> Шаг 3 — участники</strong>
+            <div className="booking-participants">
+              <strong><Users size={18} /> Участники</strong>
               <FormField label="Количество участников" required>
                 <input type="number" min="1" max={selectedSession?.available_places || item.max_participants} value={form.participants_count} onChange={(event) => setForm({ ...form, participants_count: event.target.value })} required />
               </FormField>
             </div>
-            <div className="booking-step">
-              <strong>Шаг 4 — контакты</strong>
-              <div className="form-grid">
-                <FormField label="Имя" required><input value={form.customer_name} onChange={(event) => setForm({ ...form, customer_name: event.target.value })} required /></FormField>
+            <div className="booking-contact-grid">
+              <div className="booking-contact-fields">
+                <FormField label="ФИО" required><input value={form.customer_name} onChange={(event) => setForm({ ...form, customer_name: event.target.value })} required /></FormField>
                 <FormField label="Телефон"><input value={form.customer_phone} placeholder="+7..." onChange={(event) => setForm({ ...form, customer_phone: event.target.value })} /></FormField>
                 <FormField label="Email"><input type="email" value={form.customer_email} placeholder="name@example.ru" onChange={(event) => setForm({ ...form, customer_email: event.target.value })} /></FormField>
-                <FormField label="Комментарий"><textarea value={form.comment} onChange={(event) => setForm({ ...form, comment: event.target.value })} /></FormField>
               </div>
+              <FormField label="Сообщение или комментарий"><textarea value={form.comment} onChange={(event) => setForm({ ...form, comment: event.target.value })} /></FormField>
             </div>
-            <div className="booking-step booking-step--submit">
-              <strong><CheckCircle2 size={18} /> Шаг 5 — подтверждение</strong>
+            <div className="booking-submit">
+              <strong><CheckCircle2 size={18} /> Подтверждение</strong>
               <p>Свободных мест по выбранной дате: {selectedSession?.available_places ?? availablePlacesTotal(sessions, item.max_participants)}</p>
               <Button type="submit" tone="primary" disabled={!form.session_id || !form.customer_name || submitting}>{submitting ? "Отправляем..." : "Отправить заявку"}</Button>
             </div>
@@ -178,4 +203,43 @@ export function ExcursionDetailPage() {
       </section>
     </article>
   );
+}
+
+function HeroCarouselBackground({ images }) {
+  const list = images.length ? images : [placeholderImage];
+  const doubled = [...list, ...list];
+  return (
+    <div className="hero-carousel-bg" aria-hidden>
+      <div className="hero-carousel-track">
+        {doubled.map((image, index) => <img key={`${image}-${index}`} src={mediaUrl(image)} alt="" />)}
+      </div>
+    </div>
+  );
+}
+
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonths(date, count) {
+  return new Date(date.getFullYear(), date.getMonth() + count, 1);
+}
+
+function isoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function calendarDays(month) {
+  const first = startOfMonth(month);
+  const offset = (first.getDay() + 6) % 7;
+  const start = new Date(first);
+  start.setDate(first.getDate() - offset);
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(start);
+    day.setDate(start.getDate() + index);
+    return day;
+  });
 }

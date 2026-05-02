@@ -48,6 +48,7 @@ function readableStatus(message) {
     "Point not found": "Точка не найдена.",
     "Excursion not found": "Экскурсия не найдена.",
     "Booking not found": "Заявка не найдена.",
+    "Session time already exists": "На это время для выбранной экскурсии уже есть сеанс.",
     "Invalid credentials": "Неверный email или пароль.",
     "User already exists": "Пользователь с таким email уже зарегистрирован."
   };
@@ -138,7 +139,7 @@ export const authApi = {
 };
 
 export const excursionsApi = {
-  list: () => api("/excursions"),
+  list: (publicOnly = true) => api(`/excursions?public_only=${publicOnly ? "true" : "false"}`),
   get: (id) => api(`/excursions/${id}`),
   create: (data) => api("/excursions", { method: "POST", body: JSON.stringify(data) }),
   update: (id, data) => api(`/excursions/${id}`, { method: "PUT", body: JSON.stringify(data) }),
@@ -160,9 +161,11 @@ export const adminApi = {
   updatePoint: (id, data) => api(`/points/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deletePoint: (id) => api(`/points/${id}`, { method: "DELETE" }),
   routes: () => api("/routes"),
+  getRoute: (id) => api(`/routes/${id}`),
   createRoute: (data) => api("/routes", { method: "POST", body: JSON.stringify(data) }),
   updateRoute: (id, data) => api(`/routes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteRoute: (id) => api(`/routes/${id}`, { method: "DELETE" }),
+  previewRoute: (data) => api("/routes/preview", { method: "POST", body: JSON.stringify(data) }),
   generateRoute: (data) => api("/routes/generate", { method: "POST", body: JSON.stringify(data) }),
   createExcursion: (data) => api("/excursions", { method: "POST", body: JSON.stringify(data) }),
   updateExcursion: (id, data) => api(`/excursions/${id}`, { method: "PUT", body: JSON.stringify(data) }),

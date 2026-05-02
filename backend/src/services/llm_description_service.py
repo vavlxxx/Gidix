@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import datetime, timezone
 
 import ollama
@@ -26,6 +27,7 @@ class LLMDescriptionService:
             text = self._fallback_text(facts)
         else:
             text = await self._ask_ollama(prompt) or self._fallback_text(facts)
+        text = _plain_text(text)
 
         source = GeneratedDescriptionSource(
             entity_type="route",
@@ -58,7 +60,8 @@ class LLMDescriptionService:
         return (
             "Ты экскурсовод GIDIX. Напиши связный текст экскурсии на русском языке.\n"
             "Не выдумывай даты, имена и легенды. Используй только предоставленные факты.\n"
-            "Если фактов мало, скажи аккуратно и обобщенно. Текст должен быть готов для чтения туристам.\n\n"
+            "Если фактов мало, скажи аккуратно и обобщенно. Текст должен быть готов для чтения туристам.\n"
+            "Не используй Markdown, заголовки, маркированные списки, спецсимволы оформления, **, ## или нумерацию.\n\n"
             f"{payload}"
         )
 
@@ -86,3 +89,11 @@ class LLMDescriptionService:
             fact_text = (item.get("facts") or "").split("\n")[0]
             parts.append(f"{item.get('title')}. {fact_text}")
         return "\n\n".join(parts)
+
+
+def _plain_text(text: str | None) -> str:
+    value = text or ""
+    value = re.sub(r"[*_`#>~-]+", "", value)
+    value = re.sub(r"^\s*[-•]\s+", "", value, flags=re.MULTILINE)
+    value = re.sub(r"\n{3,}", "\n\n", value)
+    return value.strip()
