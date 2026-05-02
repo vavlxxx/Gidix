@@ -1,13 +1,15 @@
 import React from "react";
 import { ArrowDown, ArrowUp, Check, X } from "lucide-react";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap } from "react-leaflet";
+import { mediaUrl } from "../../api/client";
 import { Button } from "../ui/Button";
+import { placeholderImage } from "../../utils/format";
 import { pointIcon, pointPosition, tileAttribution, tileUrl } from "../../utils/map";
 
-export function AdminRouteBuilderMap({ points, selectedIds, onTogglePoint, onMovePoint, routeGeometry }) {
+export function AdminRouteBuilderMap({ points, selectedIds, onTogglePoint, onMovePoint, routeGeometry, loading = false }) {
   const selectedPoints = selectedIds.map((id) => points.find((point) => point.id === id)).filter(Boolean);
   const selectedLine = selectedPoints.map(pointPosition).filter(Boolean);
-  const osrmLine = routeGeometry?.coordinates?.map(([lon, lat]) => [lat, lon]) || [];
+  const plannedLine = routeGeometry?.coordinates?.map(([lon, lat]) => [lat, lon]) || [];
   const allPositions = points.map(pointPosition).filter(Boolean);
   const center = selectedLine[0] || allPositions[0] || [54.7351, 55.9587];
 
@@ -16,9 +18,9 @@ export function AdminRouteBuilderMap({ points, selectedIds, onTogglePoint, onMov
       <div className="route-builder__map">
         <MapContainer center={center} zoom={12} scrollWheelZoom className="builder-map">
           <TileLayer attribution={tileAttribution} url={tileUrl} />
-          <FitBounds positions={selectedLine.length ? selectedLine : allPositions} />
+          <FitBoundsOnce positions={allPositions.length ? allPositions : selectedLine} />
           {selectedLine.length > 1 && <Polyline positions={selectedLine} pathOptions={{ color: "#6a7680", weight: 4, opacity: .65, dashArray: "7 7" }} />}
-          {osrmLine.length > 1 && <Polyline positions={osrmLine} pathOptions={{ color: "#1f7a5c", weight: 6, opacity: .86 }} />}
+          {plannedLine.length > 1 && <Polyline positions={plannedLine} pathOptions={{ color: "#207bfb", weight: 6, opacity: .86 }} />}
           {points.map((point, index) => {
             const selectedIndex = selectedIds.indexOf(point.id);
             const selected = selectedIndex >= 0;
@@ -38,14 +40,16 @@ export function AdminRouteBuilderMap({ points, selectedIds, onTogglePoint, onMov
             );
           })}
         </MapContainer>
+        {loading && <div className="map-loading">Строим план экскурсии...</div>}
       </div>
       <aside className="route-builder__panel">
         <h2>Выбранные точки</h2>
-        <p>Порядок точек определяет ручной маршрут и отправляется в OSRM при расчёте.</p>
+        <p>Порядок точек определяет программу посещения. Его можно менять кнопками или выбором точек на карте.</p>
         <ol className="selected-points">
           {selectedPoints.map((point, index) => (
             <li key={point.id}>
               <span>{index + 1}</span>
+              <img src={mediaUrl(point.image_url || placeholderImage)} alt="" />
               <strong>{point.name}</strong>
               <div>
                 <button type="button" aria-label="Переместить выше" onClick={() => onMovePoint(index, -1)} disabled={index === 0}><ArrowUp size={15} /></button>
@@ -58,19 +62,26 @@ export function AdminRouteBuilderMap({ points, selectedIds, onTogglePoint, onMov
         {!selectedPoints.length && <div className="panel-hint">Выберите точки на карте или в списке ниже.</div>}
         <div className="route-preview">
           <span><Check size={16} /> Точек: {selectedPoints.length}</span>
-          <span>Источник: {osrmLine.length > 1 ? "OSRM" : "ручной порядок"}</span>
+          <span>{plannedLine.length > 1 ? "План экскурсии построен" : "План будет построен при сохранении"}</span>
         </div>
       </aside>
     </section>
   );
 }
 
-function FitBounds({ positions }) {
+function FitBoundsOnce({ positions }) {
   const map = useMap();
+  const fitted = React.useRef(false);
   React.useEffect(() => {
+    if (fitted.current) return;
     const valid = positions.filter((position) => Number.isFinite(position?.[0]) && Number.isFinite(position?.[1]));
-    if (valid.length > 1) map.fitBounds(valid, { padding: [42, 42], maxZoom: 14 });
-    else if (valid.length === 1) map.setView(valid[0], 14);
+    if (valid.length > 1) {
+      map.fitBounds(valid, { padding: [42, 42], maxZoom: 14 });
+      fitted.current = true;
+    } else if (valid.length === 1) {
+      map.setView(valid[0], 14);
+      fitted.current = true;
+    }
   }, [map, positions]);
   return null;
 }

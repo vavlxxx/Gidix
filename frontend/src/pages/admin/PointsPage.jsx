@@ -1,5 +1,5 @@
 import React from "react";
-import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
 import { MapPin, Save, Trash2 } from "lucide-react";
 import { adminApi, mediaUrl } from "../../api/client";
 import { Button } from "../../components/ui/Button";
@@ -62,26 +62,19 @@ export function PointsPage() {
     <div>
       <PageHeader eyebrow="Точки интереса" title="Географическая база маршрутов" description="Точки выбираются на карте, используются в маршрутах и остаются доступными как альтернативный список для пользователей." />
       {loading && <LoadingState text="Загрузка точек" />}
-      <section className="points-workspace">
-        <div className="points-map">
+      <section className="points-page">
+        <div className="points-map points-map--wide">
           <MapContainer center={[54.7351, 55.9587]} zoom={12} scrollWheelZoom className="admin-map">
             <TileLayer attribution={tileAttribution} url={tileUrl} />
-            {state.points.map((point, index) => {
-              const position = pointPosition(point);
-              if (!position) return null;
-              return (
-                <Marker key={point.id} position={position} icon={pointIcon(index + 1, editingId === point.id ? "active" : "default")} eventHandlers={{ click: () => edit(point) }}>
-                  <Popup>
-                    <article className="map-popup">
-                      <img src={mediaUrl(point.image_url || placeholderImage)} alt="" />
-                      <strong>{point.name}</strong>
-                      <p>{point.short_description || point.address || "Точка интереса"}</p>
-                      <button type="button" onClick={() => edit(point)}>Редактировать</button>
-                    </article>
-                  </Popup>
-                </Marker>
-              );
-            })}
+            <PointsLayer
+              points={state.points}
+              editingId={editingId}
+              onEdit={edit}
+              onCreate={(latlng) => {
+                setEditingId(null);
+                setForm({ ...empty, latitude: latlng.lat.toFixed(7), longitude: latlng.lng.toFixed(7) });
+              }}
+            />
           </MapContainer>
         </div>
         <form className="point-editor panel stack" onSubmit={submit}>
@@ -105,4 +98,37 @@ export function PointsPage() {
       </section>
     </div>
   );
+}
+
+function PointsLayer({ points, editingId, onEdit, onCreate }) {
+  const [compact, setCompact] = React.useState(false);
+  const map = useMapEvents({
+    click(event) {
+      onCreate(event.latlng);
+    },
+    zoomend() {
+      setCompact(map.getZoom() < 12);
+    }
+  });
+
+  React.useEffect(() => {
+    setCompact(map.getZoom() < 12);
+  }, [map]);
+
+  return points.map((point, index) => {
+    const position = pointPosition(point);
+    if (!position) return null;
+    return (
+      <Marker key={point.id} position={position} icon={pointIcon(index + 1, editingId === point.id ? "active" : "default", compact)} eventHandlers={{ click: () => onEdit(point) }}>
+        <Popup>
+          <article className="map-popup">
+            <img src={mediaUrl(point.image_url || placeholderImage)} alt="" />
+            <strong>{point.name}</strong>
+            <p>{point.short_description || point.address || "Точка интереса"}</p>
+            <button type="button" onClick={() => onEdit(point)}>Редактировать</button>
+          </article>
+        </Popup>
+      </Marker>
+    );
+  });
 }

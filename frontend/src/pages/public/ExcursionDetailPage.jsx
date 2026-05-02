@@ -1,13 +1,13 @@
 import React from "react";
 import { useParams } from "react-router-dom";
-import { CalendarCheck, CheckCircle2, Users } from "lucide-react";
+import { CalendarCheck, CheckCircle2, Clock3, Users, WalletCards } from "lucide-react";
 import { adminApi, bookingsApi, excursionsApi, mediaUrl } from "../../api/client";
 import { RouteMap, MapLegend } from "../../components/map/RouteMap";
 import { Button } from "../../components/ui/Button";
 import { FormField } from "../../components/ui/FormField";
 import { EmptyState, ErrorState, LoadingState, SuccessState } from "../../components/ui/State";
 import { useToast } from "../../context/ToastContext";
-import { availablePlacesTotal, cleanPayload, formatDate, formatTime, km, minutes, money, placeholderImage, sortedRoutePoints } from "../../utils/format";
+import { availablePlacesTotal, cleanPayload, formatDate, formatTime, minutes, money, placeholderImage, sortedRoutePoints } from "../../utils/format";
 
 const emptyForm = { session_id: "", participants_count: 1, customer_name: "", customer_phone: "", customer_email: "", comment: "" };
 
@@ -21,6 +21,7 @@ export function ExcursionDetailPage() {
   const [form, setForm] = React.useState(emptyForm);
   const [success, setSuccess] = React.useState(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [heroIndex, setHeroIndex] = React.useState(0);
 
   React.useEffect(() => {
     async function load() {
@@ -46,6 +47,16 @@ export function ExcursionDetailPage() {
   const times = selectedDate ? sessions.filter((session) => session.session_date === selectedDate) : [];
   const routePoints = sortedRoutePoints(item?.route);
   const nearest = sessions[0];
+  const heroImages = React.useMemo(() => {
+    const images = [item?.image_url, ...(routePoints || []).map((link) => link.point?.image_url)].filter(Boolean);
+    return images.length ? images : [placeholderImage];
+  }, [item?.image_url, routePoints]);
+
+  React.useEffect(() => {
+    if (heroImages.length < 2) return undefined;
+    const timer = window.setInterval(() => setHeroIndex((index) => (index + 1) % heroImages.length), 2000);
+    return () => window.clearInterval(timer);
+  }, [heroImages.length]);
 
   function setDate(date) {
     const first = sessions.find((session) => session.session_date === date);
@@ -78,18 +89,16 @@ export function ExcursionDetailPage() {
 
   return (
     <article className="excursion-detail">
-      <section className="detail-hero">
-        <div>
+      <section className="detail-hero detail-hero--photo" style={{ "--hero-image": `url(${mediaUrl(heroImages[heroIndex] || placeholderImage)})` }}>
+        <div className="detail-hero__content">
           <span className="eyebrow">Карточка экскурсии</span>
           <h1>{item.title}</h1>
           <p>{item.description || item.route?.description || "Описание экскурсии будет уточнено менеджером."}</p>
-          <dl className="detail-facts">
-            <div><dt>Цена</dt><dd>{money(item.base_price)}</dd></div>
-            <div><dt>Длительность</dt><dd>{minutes(item.duration_min || item.route?.estimated_duration_min)}</dd></div>
-            <div><dt>Протяжённость</dt><dd>{km(item.route?.estimated_length_km)}</dd></div>
-            <div><dt>Точек</dt><dd>{routePoints.length}</dd></div>
-            <div><dt>Ближайшая дата</dt><dd>{nearest ? formatDate(nearest.session_date, { day: "2-digit", month: "short" }) : "нет дат"}</dd></div>
-          </dl>
+          <div className="detail-badges" aria-label="Краткая информация об экскурсии">
+            <span><WalletCards size={17} /> {money(item.base_price)}</span>
+            <span><Clock3 size={17} /> {minutes(item.duration_min || item.route?.estimated_duration_min)}</span>
+            <span><CalendarCheck size={17} /> {nearest ? formatDate(nearest.session_date, { day: "2-digit", month: "short" }) : "дат пока нет"}</span>
+          </div>
         </div>
       </section>
 

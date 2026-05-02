@@ -1,5 +1,5 @@
 import React from "react";
-import { Save } from "lucide-react";
+import { Save, Sparkles } from "lucide-react";
 import { adminApi } from "../../api/client";
 import { AdminRouteBuilderMap } from "../../components/map/AdminRouteBuilderMap";
 import { Button } from "../../components/ui/Button";
@@ -9,9 +9,9 @@ import { LoadingState } from "../../components/ui/State";
 import { UploadField } from "../../components/ui/UploadField";
 import { useAdminData } from "../../hooks/useAdminData";
 import { useToast } from "../../context/ToastContext";
-import { cleanPayload } from "../../utils/format";
+import { cleanPayload, km, minutes } from "../../utils/format";
 
-const empty = { title: "Новый маршрут", description: "", cover_image_url: "", routingMode: "manual", algorithm: "nearest_neighbor_2opt" };
+const empty = { title: "Новый маршрут", description: "", cover_image_url: "", buildByRoads: false };
 
 export function RoutesPage() {
   const notify = useToast();
@@ -29,10 +29,9 @@ export function RoutesPage() {
       title: route.title,
       description: route.description || "",
       cover_image_url: route.route_metadata?.cover_image_url || "",
-      routingMode: route.formation_type === "osrm" || route.route_metadata?.routing_source === "osrm" ? "osrm" : "manual",
-      algorithm: route.optimization_algorithm || "nearest_neighbor_2opt"
+      buildByRoads: Boolean(route.geometry_geojson)
     });
-    setSelected([...route.points].sort((a, b) => a.position - b.position).map((link) => link.point_id));
+    setSelected([...(route.points || [])].sort((a, b) => a.position - b.position).map((link) => link.point_id));
   }
 
   function reset() {
@@ -71,21 +70,26 @@ export function RoutesPage() {
     try {
       let saved;
       const common = { title: form.title, description: form.description, route_metadata: { cover_image_url: form.cover_image_url } };
-      if (form.routingMode === "osrm") {
-        const generated = await adminApi.generateRoute({ title: form.title, point_ids: selected, algorithm: form.algorithm });
-        saved = editingId
-          ? await adminApi.updateRoute(editingId, { ...common, formation_type: "osrm", optimization_algorithm: form.algorithm, geometry_geojson: generated.geometry_geojson, estimated_duration_min: generated.estimated_duration_min, estimated_length_km: generated.estimated_length_km, points: generated.points.map(({ point_id, position, visit_duration_min, note }) => ({ point_id, position, visit_duration_min, note })) })
-          : generated;
+      if (form.buildByRoads) {
+        notify.info("Строим план экскурсии. Это может занять несколько секунд.");
+        const generated = await adminApi.generateRoute({ title: form.title, point_ids: selected });
+        const generatedPoints = generated.points?.map(({ point_id, position, visit_duration_min, note }) => ({ point_id, position, visit_duration_min, note })) || selected.map((point_id, index) => ({ point_id, position: index + 1 }));
+        const payload = cleanPayload({ ...common, formation_type: "road_plan", optimization_algorithm: null, geometry_geojson: generated.geometry_geojson, estimated_duration_min: generated.estimated_duration_min, estimated_length_km: generated.estimated_length_km, points: generatedPoints });
+        saved = editingId ? await adminApi.updateRoute(editingId, payload) : await adminApi.updateRoute(generated.id, payload);
+        if (editingId && generated.id !== editingId) {
+          await adminApi.deleteRoute(generated.id).catch(() => null);
+        }
+        notify.success("План экскурсии построен и сохранён.");
       } else {
-        const payload = cleanPayload({ ...common, formation_type: "manual", optimization_algorithm: null, points: selected.map((point_id, index) => ({ point_id, position: index + 1 })) });
+        const payload = cleanPayload({ ...common, formation_type: "planned", optimization_algorithm: null, points: selected.map((point_id, index) => ({ point_id, position: index + 1 })) });
         saved = editingId ? await adminApi.updateRoute(editingId, payload) : await adminApi.createRoute(payload);
+        notify.success("Маршрут сохранён.");
       }
-      notify.success("Маршрут сохранён.");
       setActiveRoute(saved);
       reset();
       refresh();
     } catch (err) {
-      notify.error(err.message || "Не удалось рассчитать или сохранить маршрут.");
+      notify.error(err.message || "Не удалось построить или сохранить маршрут.");
     } finally {
       setSaving(false);
     }
@@ -93,35 +97,27 @@ export function RoutesPage() {
 
   return (
     <div>
-      <PageHeader eyebrow="Маршруты" title="Конструктор маршрутных программ" description="Выбирайте точки на карте, меняйте порядок и сохраняйте ручную линию или OSRM-расчёт." />
+      <PageHeader eyebrow="Маршруты" title="Конструктор экскурсионных программ" description="Выбирайте точки на карте, меняйте порядок посещения и сохраняйте единый маршрут для экскурсии." />
       {loading && <LoadingState text="Загрузка маршрутов" />}
-      <AdminRouteBuilderMap points={state.points} selectedIds={selected} onTogglePoint={togglePoint} onMovePoint={movePoint} routeGeometry={activeRoute?.geometry_geojson} />
+      <AdminRouteBuilderMap points={state.points} selectedIds={selected} onTogglePoint={togglePoint} onMovePoint={movePoint} routeGeometry={activeRoute?.geometry_geojson} loading={saving && form.buildByRoads} />
       <section className="route-editor panel">
         <form className="stack" onSubmit={save}>
           <div className="form-grid">
             <FormField label="Название маршрута" required><input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required /></FormField>
-            <FormField label="Режим построения">
-              <select value={form.routingMode} onChange={(event) => setForm({ ...form, routingMode: event.target.value })}>
-                <option value="manual">Ручной порядок</option>
-                <option value="osrm">Рассчитать через OSRM</option>
-              </select>
-            </FormField>
-            <FormField label="Алгоритм OSRM">
-              <select value={form.algorithm} disabled={form.routingMode !== "osrm"} onChange={(event) => setForm({ ...form, algorithm: event.target.value })}>
-                <option value="nearest_neighbor_2opt">Ближайший сосед + 2-opt</option>
-                <option value="nearest_neighbor">Ближайший сосед</option>
-                <option value="held_karp">Held-Karp</option>
-                <option value="bruteforce">Полный перебор</option>
-              </select>
+            <FormField label="Построение по улицам">
+              <label className="switch-line">
+                <input type="checkbox" checked={form.buildByRoads} onChange={(event) => setForm({ ...form, buildByRoads: event.target.checked })} />
+                <span>Построить план экскурсии по городской дорожной сети</span>
+              </label>
             </FormField>
           </div>
-          <FormField label="Описание"><textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></FormField>
+          <FormField label="Описание"><textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Кратко опишите логику маршрута и ключевые темы экскурсии" /></FormField>
           <UploadField label="Обложка маршрута" value={form.cover_image_url} onChange={(value) => setForm({ ...form, cover_image_url: value })} onUpload={upload} />
           <div className="route-preview">
             <span>Точек: {selected.length}</span>
-            <span>Длина: {activeRoute?.estimated_length_km || "будет рассчитана"} км</span>
-            <span>Длительность: {activeRoute?.estimated_duration_min || "будет рассчитана"} мин</span>
-            <span>Геометрия: {form.routingMode === "osrm" ? "OSRM" : "ручная"}</span>
+            <span>Длина: {activeRoute?.estimated_length_km ? km(activeRoute.estimated_length_km) : "рассчитается после сохранения"}</span>
+            <span>Время в пути: {activeRoute?.estimated_duration_min ? minutes(activeRoute.estimated_duration_min) : "рассчитается после сохранения"}</span>
+            <span>{form.buildByRoads ? "Маршрут будет построен по улицам" : "Маршрут сохранит выбранный порядок посещения"}</span>
           </div>
           <div className="actions-row">
             <Button type="submit" tone="primary" disabled={saving}><Save size={17} /> {saving ? "Сохраняем..." : "Сохранить маршрут"}</Button>
@@ -133,10 +129,11 @@ export function RoutesPage() {
         {state.routes.map((route) => (
           <button type="button" className="route-admin-card" key={route.id} onClick={() => edit(route)}>
             <strong>{route.title}</strong>
-            <span>{route.points?.length || 0} точек · {route.estimated_length_km || "—"} км</span>
+            <span>{route.points?.length || 0} точек · {route.estimated_length_km ? km(route.estimated_length_km) : "длина не рассчитана"}</span>
           </button>
         ))}
       </section>
+      {saving && form.buildByRoads && <div className="loading-overlay"><Sparkles className="spin" size={22} /> Строим план экскурсии</div>}
     </div>
   );
 }

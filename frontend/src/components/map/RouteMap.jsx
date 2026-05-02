@@ -45,11 +45,10 @@ export function RouteMap({ route, excursion, highlightedPointId, className = "ro
 export function MapLegend() {
   return (
     <div className="map-legend" aria-label="Легенда карты">
-      <span><i className="legend-dot legend-dot--start" /> точка старта</span>
-      <span><i className="legend-dot" /> точка маршрута</span>
-      <span><i className="legend-dot legend-dot--finish" /> финиш</span>
-      <span><i className="legend-line legend-line--osrm" /> OSRM-маршрут</span>
-      <span><i className="legend-line legend-line--manual" /> ручной порядок</span>
+      <span><i className="legend-dot legend-dot--start" /> Начало маршрута</span>
+      <span><i className="legend-dot" /> Место посещения</span>
+      <span><i className="legend-dot legend-dot--finish" /> Завершение</span>
+      <span><i className="legend-line" /> Маршрут экскурсии</span>
     </div>
   );
 }
