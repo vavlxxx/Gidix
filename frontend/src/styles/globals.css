@@ -2000,3 +2000,467 @@ input[readonly] {
     padding: 8px;
   }
 }
+
+/* GeoJSON route refactor: road-only lines, stable maps, clean admin tools. */
+.state--loading {
+  min-height: 220px;
+  place-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.loader-orbit--large {
+  width: 54px;
+  height: 54px;
+  background:
+    radial-gradient(circle at center, #fff 0 9px, transparent 10px),
+    radial-gradient(circle at center, #3cb63a 0 4px, transparent 5px),
+    conic-gradient(from 0deg, #207bfb, #3cb63a, #fff 72%, #207bfb);
+}
+
+.gidix-marker {
+  background: transparent;
+  border: 0;
+}
+
+.gidix-marker__pin {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: 3px solid #e13e3e;
+  border-radius: 50%;
+  box-shadow: 0 8px 22px rgba(15, 35, 55, .22);
+}
+
+.gidix-marker__pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  width: 13px;
+  height: 13px;
+  background: #fff;
+  border-right: 3px solid #e13e3e;
+  border-bottom: 3px solid #e13e3e;
+  transform: translateX(-50%) rotate(45deg);
+  border-bottom-right-radius: 3px;
+}
+
+.gidix-marker__image,
+.gidix-marker__blank,
+.gidix-marker__label {
+  position: relative;
+  z-index: 1;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.gidix-marker__image {
+  object-fit: cover;
+}
+
+.gidix-marker__label {
+  background: #207bfb;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.gidix-marker--selected .gidix-marker__pin,
+.gidix-marker--selected .gidix-marker__pin::after {
+  border-color: #207bfb;
+}
+
+.gidix-marker--active .gidix-marker__pin {
+  box-shadow: 0 0 0 4px rgba(32,123,251,.16), 0 8px 22px rgba(15, 35, 55, .22);
+}
+
+.gidix-marker--vertex,
+.gidix-marker--vertex-add {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #207bfb;
+  box-shadow: 0 5px 14px rgba(15, 35, 55, .24);
+  color: #207bfb;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.gidix-marker--vertex-add {
+  border-color: #3cb63a;
+  color: #3cb63a;
+}
+
+.map-fit-button,
+.map-toolbar,
+.map-empty-note,
+.map-warning-note {
+  position: absolute;
+  z-index: 650;
+}
+
+.map-fit-button {
+  top: 14px;
+  right: 14px;
+  min-height: 38px;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 8px 24px rgba(15, 35, 55, .14);
+}
+
+.map-empty-note,
+.map-warning-note {
+  left: 16px;
+  top: 16px;
+  display: grid;
+  gap: 4px;
+  max-width: min(370px, calc(100% - 32px));
+  padding: 13px 14px;
+  background: rgba(255,255,255,.94);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  box-shadow: 0 8px 24px rgba(15, 35, 55, .12);
+}
+
+.map-empty-note strong {
+  color: var(--text);
+}
+
+.map-empty-note--builder,
+.map-warning-note {
+  top: 74px;
+}
+
+.map-warning-note {
+  border-color: #ffe0a8;
+  background: #fff8e8;
+  color: #7d560b;
+}
+
+.map-toolbar {
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 10px;
+  background: rgba(255,255,255,.94);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(15, 35, 55, .14);
+}
+
+.map-loading,
+.loading-overlay {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  font-size: 18px;
+  text-align: center;
+}
+
+.map-popup {
+  width: 250px;
+}
+
+.map-popup__carousel {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.map-popup__carousel img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity .45s ease;
+}
+
+.map-popup__carousel img.is-active {
+  opacity: 1;
+}
+
+.route-builder {
+  height: min(82vh, 760px);
+  min-height: 620px;
+  align-items: stretch;
+}
+
+.route-builder__map,
+.builder-map {
+  height: 100%;
+  min-height: 0;
+}
+
+.route-builder__panel {
+  height: 100%;
+  max-height: none;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.route-builder__panel-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  gap: 6px;
+  background: #fff;
+}
+
+.route-builder__panel-head h2,
+.route-builder__panel-head p {
+  margin: 0;
+}
+
+.route-builder__panel-head p,
+.selected-point-copy small {
+  color: var(--muted);
+}
+
+.selected-points {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.selected-points li {
+  grid-template-columns: 18px 28px 52px minmax(0, 1fr) auto;
+  min-height: 74px;
+}
+
+.selected-points img {
+  width: 52px;
+  height: 52px;
+}
+
+.selected-point-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.selected-point-copy strong,
+.selected-point-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selected-point-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.panel-hint--warning {
+  background: #fff8e8;
+  color: #8a5a0a;
+}
+
+.hero-carousel-track {
+  display: none;
+}
+
+.hero-carousel-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.025);
+  transition: opacity .55s ease, transform .55s ease;
+}
+
+.hero-carousel-image.is-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.masonry-gallery__item,
+.masonry-gallery__item:hover,
+.lightbox__close:hover,
+.lightbox__nav:hover {
+  transform: none;
+}
+
+.masonry-gallery__item {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.masonry-gallery__item img {
+  border-radius: 8px;
+  transition: opacity .18s ease, filter .18s ease;
+}
+
+.masonry-gallery__item:hover img {
+  opacity: .94;
+  filter: saturate(1.06);
+}
+
+.lightbox__nav:hover {
+  transform: translateY(-50%);
+}
+
+.booking-contact-grid {
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+}
+
+.booking-contact-grid > .form-field textarea {
+  height: 100%;
+  min-height: 284px;
+}
+
+.points-page--split {
+  grid-template-columns: 1fr !important;
+  align-items: stretch;
+}
+
+.points-page--split .points-map--wide,
+.points-page--split .admin-map {
+  min-height: 560px !important;
+  height: 62vh;
+}
+
+.points-page .point-editor {
+  width: 100% !important;
+}
+
+.point-editor__section {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.point-editor__section h3 {
+  margin: 0;
+}
+
+.media-manager {
+  display: grid;
+  gap: 12px;
+}
+
+.media-manager__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.media-manager__grid figure {
+  position: relative;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.media-manager__grid img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.media-manager__grid figcaption {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: #fff;
+}
+
+.media-manager__grid button {
+  min-height: 30px;
+  width: 30px;
+  padding: 0;
+}
+
+.media-manager__grid button.is-active {
+  background: var(--blue);
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-carousel-image,
+  .map-popup__carousel img,
+  .masonry-gallery__item img {
+    transition: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .route-builder {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 0;
+  }
+
+  .route-builder__map {
+    height: 68vh;
+    min-height: 520px;
+  }
+
+  .route-builder__panel {
+    height: min(46vh, 420px);
+  }
+}
+
+@media (max-width: 760px) {
+  .route-builder__map {
+    height: 62vh;
+    min-height: 420px;
+  }
+
+  .route-builder__panel {
+    height: auto;
+    max-height: 48vh;
+  }
+
+  .selected-points li {
+    grid-template-columns: 18px 26px minmax(0, 1fr) auto;
+  }
+
+  .selected-points img {
+    display: none;
+  }
+
+  .booking-contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-contact-grid > .form-field textarea {
+    min-height: 180px;
+  }
+
+  .points-page--split .points-map--wide,
+  .points-page--split .admin-map {
+    min-height: 420px !important;
+    height: 58vh;
+  }
+}

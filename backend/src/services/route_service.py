@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from itertools import permutations
-from math import radians, sin, cos, sqrt, atan2
+from math import atan2, cos, radians, sin, sqrt
 from typing import Any
 from urllib.parse import urlencode
 
@@ -13,8 +13,12 @@ from sqlalchemy.orm import selectinload
 
 from src.config import settings
 from src.models.domain import PointOfInterest, Route, RoutePoint
-from src.schemas.domain import RouteGenerateRequest
+from src.schemas.domain import RouteBuildPlanRequest, RouteGenerateRequest, RoutePreviewRoadRequest
 from src.utils.db_tools import DBManager
+
+
+ROAD_ROUTE_ERROR = "Не удалось построить маршрут по дорожной сети."
+SNAP_ERROR = "Не удалось привязать точку к дорожной сети."
 
 
 @dataclass(frozen=True)
@@ -26,56 +30,53 @@ class OptimizationResult:
     checked_variants: int | None = None
 
 
+@dataclass(frozen=True)
+class RoutePlanResult:
+    geometry: dict[str, Any]
+    ordered_points: list[PointOfInterest]
+    distance: float
+    duration: float
+    snapped_points: list[dict[str, Any]]
+    source: str = "road"
+    optimization: OptimizationResult | None = None
+
+
 class RouteService:
     def __init__(self, db: DBManager) -> None:
         self.db = db
 
     async def generate_route(self, data: RouteGenerateRequest) -> Route:
-        points = await self._load_points(data.point_ids)
-        if len(points) < 2:
-            raise ValueError("At least two points are required")
-
-        start_index = _index_by_point_id(points, data.start_point_id) if data.start_point_id else 0
-        finish_index = _index_by_point_id(points, data.finish_point_id) if data.finish_point_id else len(points) - 1
-        algorithm = data.algorithm or settings.route_optimization_default
-
-        table = await self._get_table(points)
-        durations = table["durations"]
-        distances = table["distances"]
-        optimization = find_best_order(durations, start_index, finish_index, algorithm)
-        ordered_points = [points[index] for index in optimization.order]
-        route_data = await self._get_route(ordered_points)
-
-        route = Route(
-            title=data.title,
-            description=None,
-            start_point_id=ordered_points[0].id,
-            finish_point_id=ordered_points[-1].id,
-            estimated_duration_min=round(route_data["duration"] / 60),
-            estimated_length_km=round(route_data["distance"] / 1000, 2),
-            formation_type="osrm" if settings.enable_route_generation else "local",
-            optimization_algorithm=optimization.algorithm,
-            geometry_geojson=route_data["geometry"],
-            route_metadata={
-                "matrix_cost_seconds": optimization.cost,
-                "elapsed_seconds": optimization.elapsed_seconds,
-                "checked_variants": optimization.checked_variants,
-                "distance_matrix": distances,
-                "routing_source": route_data.get("source"),
-                "table_source": table.get("source"),
-            },
-        )
-        self.db.session.add(route)
-        await self.db.session.flush()
-        for position, point in enumerate(ordered_points, 1):
-            self.db.session.add(
-                RoutePoint(
-                    route_id=route.id,
-                    point_id=point.id,
-                    position=position,
-                    visit_duration_min=point.visit_duration_min,
-                )
+        plan = await self.build_plan(
+            RouteBuildPlanRequest(
+                title=data.title,
+                point_ids=data.point_ids,
+                start_point_id=data.start_point_id,
+                finish_point_id=data.finish_point_id,
             )
+        )
+        route = await self._create_route_from_plan(data.title, None, plan)
+        await self.db.commit()
+        return await self.get_route(route.id)
+
+    async def preview_road(self, data: RoutePreviewRoadRequest) -> RoutePlanResult:
+        return await self._build_plan(
+            point_ids=data.point_ids,
+            preserve_order=data.preserve_order,
+            start_point_id=data.start_point_id,
+            finish_point_id=data.finish_point_id,
+        )
+
+    async def build_plan(self, data: RouteBuildPlanRequest) -> RoutePlanResult:
+        return await self._build_plan(
+            point_ids=data.point_ids,
+            preserve_order=False,
+            start_point_id=data.start_point_id,
+            finish_point_id=data.finish_point_id,
+        )
+
+    async def create_built_route(self, data: RouteBuildPlanRequest) -> Route:
+        plan = await self.build_plan(data)
+        route = await self._create_route_from_plan(data.title, data.description, plan)
         await self.db.commit()
         return await self.get_route(route.id)
 
@@ -88,6 +89,68 @@ class RouteService:
             raise ValueError("Route not found")
         return route
 
+    async def _create_route_from_plan(self, title: str, description: str | None, plan: RoutePlanResult) -> Route:
+        route = Route(
+            title=title,
+            description=description,
+            start_point_id=plan.ordered_points[0].id,
+            finish_point_id=plan.ordered_points[-1].id,
+            estimated_duration_min=round(plan.duration / 60),
+            estimated_length_km=round(plan.distance / 1000, 2),
+            formation_type="road_plan",
+            optimization_algorithm=plan.optimization.algorithm if plan.optimization else None,
+            geometry_geojson=plan.geometry,
+            route_metadata=_route_metadata(plan, manual_geometry_edited=False),
+        )
+        self.db.session.add(route)
+        await self.db.session.flush()
+        for position, point in enumerate(plan.ordered_points, start=1):
+            self.db.session.add(
+                RoutePoint(
+                    route_id=route.id,
+                    point_id=point.id,
+                    position=position,
+                    visit_duration_min=point.visit_duration_min,
+                )
+            )
+        await self.db.session.flush()
+        return route
+
+    async def _build_plan(
+        self,
+        point_ids: list[int],
+        preserve_order: bool,
+        start_point_id: int | None = None,
+        finish_point_id: int | None = None,
+    ) -> RoutePlanResult:
+        points = await self._load_points(point_ids)
+        if len(points) < 2:
+            raise ValueError("At least two points are required")
+        start_index = _index_by_point_id(points, start_point_id) if start_point_id else 0
+        finish_index = _index_by_point_id(points, finish_point_id) if finish_point_id else len(points) - 1
+
+        if preserve_order:
+            ordered_points = points
+            optimization = None
+        else:
+            optimization = await self._optimize_order(points, start_index, finish_index)
+            ordered_points = [points[index] for index in optimization.order]
+
+        route_data = await self._get_route(ordered_points, strict=True)
+        return RoutePlanResult(
+            geometry=route_data["geometry"],
+            ordered_points=ordered_points,
+            distance=route_data["distance"],
+            duration=route_data["duration"],
+            snapped_points=route_data.get("snapped_points", []),
+            optimization=optimization,
+        )
+
+    async def _optimize_order(self, points: list[PointOfInterest], start_index: int, finish_index: int) -> OptimizationResult:
+        table = await self._get_table(points)
+        algorithm = settings.route_optimization_default
+        return find_best_order(table["durations"], start_index, finish_index, algorithm)
+
     async def _load_points(self, point_ids: list[int]) -> list[PointOfInterest]:
         result = await self.db.session.execute(select(PointOfInterest).where(PointOfInterest.id.in_(point_ids)))
         by_id = {point.id: point for point in result.scalars().all()}
@@ -99,8 +162,8 @@ class RouteService:
     async def _get_table(self, points: list[PointOfInterest]) -> dict[str, Any]:
         if not settings.enable_route_generation:
             return _fallback_table(points)
-
-        coordinates = _coordinates(points)
+        snapped = await self._nearest_points(points, strict=False)
+        coordinates = _coordinates_from_snapped(snapped)
         params = {"annotations": "duration,distance"}
         url = f"{settings.osrm_base_url}/table/v1/{settings.osrm_profile}/{coordinates}?{urlencode(params)}"
         try:
@@ -108,19 +171,20 @@ class RouteService:
                 response = await client.get(url)
                 response.raise_for_status()
                 data = response.json()
-                if data.get("code") == "Ok":
-                    data["source"] = "osrm"
-                    return data
+            if data.get("code") == "Ok":
+                return data
         except Exception:
             pass
         return _fallback_table(points)
 
-    async def _get_route(self, points: list[PointOfInterest]) -> dict[str, Any]:
+    async def _get_route(self, points: list[PointOfInterest], strict: bool = False) -> dict[str, Any]:
         if not settings.enable_route_generation:
-            return _fallback_route(points)
+            return _straight_line_route_or_error(points, strict)
         if len(points) > 40:
-            return await self._get_route_chunked(points)
-        coordinates = _coordinates(points)
+            return await self._get_route_chunked(points, strict=strict)
+
+        snapped = await self._nearest_points(points, strict=True)
+        coordinates = _coordinates_from_snapped(snapped)
         params = {"overview": "full", "geometries": "geojson", "steps": "false", "annotations": "false"}
         url = f"{settings.osrm_base_url}/route/v1/{settings.osrm_profile}/{coordinates}?{urlencode(params)}"
         try:
@@ -128,15 +192,56 @@ class RouteService:
                 response = await client.get(url)
                 response.raise_for_status()
                 data = response.json()
-                if data.get("code") == "Ok" and data.get("routes"):
-                    route = data["routes"][0]
-                    return {"geometry": route["geometry"], "distance": route["distance"], "duration": route["duration"], "source": "osrm"}
-        except Exception:
-            pass
-        return _fallback_route(points)
+            if data.get("code") == "Ok" and data.get("routes"):
+                route = data["routes"][0]
+                return {
+                    "geometry": route["geometry"],
+                    "distance": route["distance"],
+                    "duration": route["duration"],
+                    "snapped_points": snapped,
+                }
+        except Exception as exc:
+            if strict:
+                raise ValueError(ROAD_ROUTE_ERROR) from exc
+        return _straight_line_route_or_error(points, strict)
 
-    async def _get_route_chunked(self, points: list[PointOfInterest], chunk_size: int = 40) -> dict[str, Any]:
+    async def _nearest_points(self, points: list[PointOfInterest], strict: bool) -> list[dict[str, Any]]:
+        if not settings.enable_route_generation:
+            if strict:
+                raise ValueError(ROAD_ROUTE_ERROR)
+            return [_point_as_snapped(point, None) for point in points]
+
+        snapped: list[dict[str, Any]] = []
+        try:
+            async with httpx.AsyncClient(timeout=settings.osrm_timeout_seconds) as client:
+                for point in points:
+                    coordinate = f"{float(point.longitude)},{float(point.latitude)}"
+                    url = f"{settings.osrm_base_url}/nearest/v1/{settings.osrm_profile}/{coordinate}?{urlencode({'number': 1})}"
+                    response = await client.get(url)
+                    response.raise_for_status()
+                    data = response.json()
+                    waypoints = data.get("waypoints") or []
+                    if data.get("code") != "Ok" or not waypoints:
+                        raise ValueError(SNAP_ERROR)
+                    lon, lat = waypoints[0]["location"]
+                    snapped.append(
+                        {
+                            "point_id": point.id,
+                            "longitude": float(lon),
+                            "latitude": float(lat),
+                            "snap_distance_m": waypoints[0].get("distance"),
+                            "snap_source": "road",
+                        }
+                    )
+            return snapped
+        except Exception as exc:
+            if strict:
+                raise ValueError(SNAP_ERROR) from exc
+        return [_point_as_snapped(point, None) for point in points]
+
+    async def _get_route_chunked(self, points: list[PointOfInterest], chunk_size: int = 40, strict: bool = False) -> dict[str, Any]:
         all_coordinates: list[list[float]] = []
+        all_snapped: list[dict[str, Any]] = []
         total_distance = 0.0
         total_duration = 0.0
         start = 0
@@ -145,21 +250,22 @@ class RouteService:
             chunk = points[start:end]
             if len(chunk) < 2:
                 break
-            route = await self._get_route(chunk)
+            route = await self._get_route(chunk, strict=strict)
             coords = route["geometry"]["coordinates"]
             if all_coordinates:
                 coords = coords[1:]
             all_coordinates.extend(coords)
+            all_snapped.extend(route.get("snapped_points", []))
             total_distance += route["distance"]
             total_duration += route["duration"]
             start = end - 1
-        if not all_coordinates:
-            return _fallback_route(points)
+        if len(all_coordinates) < 2:
+            return _straight_line_route_or_error(points, strict)
         return {
             "geometry": {"type": "LineString", "coordinates": all_coordinates},
             "distance": total_distance,
             "duration": total_duration,
-            "source": "osrm_chunked",
+            "snapped_points": all_snapped,
         }
 
 
@@ -310,8 +416,18 @@ def route_cost(order: list[int], matrix: list[list[float | None]]) -> float | No
     return total
 
 
-def _coordinates(points: list[PointOfInterest]) -> str:
-    return ";".join(f"{float(point.longitude)},{float(point.latitude)}" for point in points)
+def _coordinates_from_snapped(points: list[dict[str, Any]]) -> str:
+    return ";".join(f"{point['longitude']},{point['latitude']}" for point in points)
+
+
+def _point_as_snapped(point: PointOfInterest, source: str | None) -> dict[str, Any]:
+    return {
+        "point_id": point.id,
+        "longitude": float(point.longitude),
+        "latitude": float(point.latitude),
+        "snap_distance_m": None,
+        "snap_source": source,
+    }
 
 
 def _fallback_table(points: list[PointOfInterest]) -> dict[str, Any]:
@@ -326,16 +442,30 @@ def _fallback_table(points: list[PointOfInterest]) -> dict[str, Any]:
             duration_row.append(distance / 1.25)
         distances.append(distance_row)
         durations.append(duration_row)
-    return {"code": "Ok", "distances": distances, "durations": durations, "source": "haversine_fallback"}
+    return {"code": "Ok", "distances": distances, "durations": durations}
 
 
-def _fallback_route(points: list[PointOfInterest]) -> dict[str, Any]:
+def _straight_line_route_or_error(points: list[PointOfInterest], strict: bool) -> dict[str, Any]:
+    if not settings.allow_straight_line_route_fallback:
+        raise ValueError(ROAD_ROUTE_ERROR)
     distance = sum(_haversine_m(src, dst) for src, dst in zip(points, points[1:]))
     return {
         "geometry": {"type": "LineString", "coordinates": [[float(p.longitude), float(p.latitude)] for p in points]},
         "distance": distance,
         "duration": distance / 1.25,
-        "source": "haversine_fallback",
+        "snapped_points": [_point_as_snapped(point, "straight_line_dev_fallback") for point in points],
+    }
+
+
+def _route_metadata(plan: RoutePlanResult, manual_geometry_edited: bool) -> dict[str, Any]:
+    return {
+        "geometry_format": "geojson",
+        "geometry_source": "road",
+        "manual_geometry_edited": manual_geometry_edited,
+        "distance_meters": plan.distance,
+        "duration_seconds": plan.duration,
+        "snapped_points": plan.snapped_points,
+        "last_built_at": int(time.time()),
     }
 
 

@@ -28,7 +28,7 @@ export function IntegrationsPage() {
 
   return (
     <div>
-      <PageHeader eyebrow="Интеграции" title="OSRM, Ollama и импорт OSM" description="Инструменты вынесены отдельно, чтобы рабочие сценарии заявок и маршрутов не смешивались с сервисной интеграцией." />
+      <PageHeader eyebrow="Интеграции" title="Маршрутизация, описания и импорт" description="Инструменты вынесены отдельно, чтобы рабочие сценарии заявок и маршрутов не смешивались с сервисной интеграцией." />
       {loading && <LoadingState text="Проверка интеграций" />}
       <section className="admin-columns">
         <DataTable columns={[

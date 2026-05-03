@@ -112,6 +112,7 @@ class Settings(BaseSettings):
     osrm_base_url: str = Field("http://localhost:5000", alias="OSRM_BASE_URL")
     osrm_profile: str = Field("foot", alias="OSRM_PROFILE")
     osrm_timeout_seconds: int = Field(30, alias="OSRM_TIMEOUT_SECONDS")
+    allow_straight_line_route_fallback: bool = Field(False, alias="ALLOW_STRAIGHT_LINE_ROUTE_FALLBACK")
     route_optimization_default: str = Field("held_karp", alias="ROUTE_OPTIMIZATION_DEFAULT")
     route_optimization_max_bruteforce_points: int = Field(10, alias="ROUTE_OPTIMIZATION_MAX_BRUTEFORCE_POINTS")
     route_optimization_max_held_karp_points: int = Field(16, alias="ROUTE_OPTIMIZATION_MAX_HELD_KARP_POINTS")

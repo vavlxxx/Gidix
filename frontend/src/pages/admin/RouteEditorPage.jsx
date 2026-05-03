@@ -5,7 +5,7 @@ import { adminApi } from "../../api/client";
 import { AdminRouteBuilderMap } from "../../components/map/AdminRouteBuilderMap";
 import { Button } from "../../components/ui/Button";
 import { FormField } from "../../components/ui/FormField";
-import { MultiImageUploadField } from "../../components/ui/MultiImageUploadField";
+import { MediaGalleryManager } from "../../components/ui/MediaGalleryManager";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { ErrorState, LoadingState } from "../../components/ui/State";
 import { useToast } from "../../context/ToastContext";
@@ -22,9 +22,12 @@ export function RouteEditorPage({ mode = "create" }) {
   const [form, setForm] = React.useState(empty);
   const [selected, setSelected] = React.useState([]);
   const [geometry, setGeometry] = React.useState(null);
+  const [builtGeometry, setBuiltGeometry] = React.useState(null);
   const [estimated, setEstimated] = React.useState({ estimated_length_km: null, estimated_duration_min: null });
+  const [routeMetadata, setRouteMetadata] = React.useState({});
   const [loading, setLoading] = React.useState(mode === "edit");
   const [saving, setSaving] = React.useState(false);
+  const [savingGeometry, setSavingGeometry] = React.useState(false);
   const [building, setBuilding] = React.useState(false);
   const [error, setError] = React.useState("");
   const [geometryDirty, setGeometryDirty] = React.useState(false);
@@ -49,9 +52,11 @@ export function RouteEditorPage({ mode = "create" }) {
         });
         setSelected([...(route.points || [])].sort((a, b) => a.position - b.position).map((link) => link.point_id));
         setGeometry(route.geometry_geojson || null);
+        setBuiltGeometry(route.route_metadata?.manual_geometry_edited ? null : route.geometry_geojson || null);
         setEstimated({ estimated_length_km: route.estimated_length_km, estimated_duration_min: route.estimated_duration_min });
+        setRouteMetadata(route.route_metadata || {});
         setGeometryDirty(false);
-        setManualGeometry(false);
+        setManualGeometry(Boolean(route.route_metadata?.manual_geometry_edited));
       } catch (err) {
         setError(err.message || "Не удалось загрузить маршрут.");
       } finally {
@@ -64,6 +69,7 @@ export function RouteEditorPage({ mode = "create" }) {
   function changeSelected(nextSelected) {
     setSelected(nextSelected);
     setGeometry(null);
+    setBuiltGeometry(null);
     setEstimated({ estimated_length_km: null, estimated_duration_min: null });
     setGeometryDirty(true);
     setManualGeometry(false);
@@ -95,6 +101,70 @@ export function RouteEditorPage({ mode = "create" }) {
     setGeometryDirty(false);
   }
 
+  async function buildPlan() {
+    if (selected.length < 2) {
+      notify.error("Для маршрута нужны минимум две точки.");
+      return null;
+    }
+    setBuilding(true);
+    try {
+      const preview = await adminApi.previewRoadRoute({ point_ids: selected, preserve_order: true });
+      const nextGeometry = preview.geometry_geojson || null;
+      setGeometry(nextGeometry);
+      setBuiltGeometry(nextGeometry);
+      setEstimated({ estimated_length_km: preview.estimated_length_km, estimated_duration_min: preview.estimated_duration_min });
+      if (preview.points?.length) {
+        setSelected([...preview.points].sort((a, b) => a.position - b.position).map((point) => point.point_id));
+      }
+      setRouteMetadata((prev) => ({
+        ...prev,
+        geometry_format: "geojson",
+        geometry_source: "road",
+        manual_geometry_edited: false,
+        snapped_points: preview.snapped_points || [],
+        last_built_at: new Date().toISOString()
+      }));
+      setGeometryDirty(false);
+      setManualGeometry(false);
+      notify.success("План экскурсии построен.");
+      return preview;
+    } catch (err) {
+      notify.error(err.message || "Не удалось построить маршрут.");
+      return null;
+    } finally {
+      setBuilding(false);
+    }
+  }
+
+  function resetGeometry() {
+    if (!builtGeometry) return;
+    setGeometry(builtGeometry);
+    setManualGeometry(false);
+    setGeometryDirty(false);
+  }
+
+  async function saveGeometryOnly() {
+    if (!geometry) {
+      notify.error("Сначала постройте или отредактируйте линию маршрута.");
+      return;
+    }
+    if (mode !== "edit" || !id) {
+      notify.info("Линия будет сохранена вместе с новым маршрутом.");
+      return;
+    }
+    setSavingGeometry(true);
+    try {
+      const saved = await adminApi.updateRouteGeometry(id, { geometry_geojson: geometry, is_geometry_customized: manualGeometry });
+      setGeometry(saved.geometry_geojson || geometry);
+      setRouteMetadata(saved.route_metadata || {});
+      notify.success("Изменения линии сохранены.");
+    } catch (err) {
+      notify.error(err.message || "Не удалось сохранить линию маршрута.");
+    } finally {
+      setSavingGeometry(false);
+    }
+  }
+
   async function upload(file) {
     return adminApi.upload(file);
   }
@@ -109,15 +179,11 @@ export function RouteEditorPage({ mode = "create" }) {
     try {
       let nextGeometry = geometry;
       let nextEstimated = estimated;
-      if (!manualGeometry) {
-        setBuilding(true);
-        notify.info("Строим маршрут по пешеходным дорогам.");
-        const preview = await adminApi.previewRoute({ title: form.title, point_ids: selected });
-        nextGeometry = preview.geometry_geojson || null;
+      if (!nextGeometry || geometryDirty) {
+        const preview = await buildPlan();
+        if (!preview?.geometry_geojson) return;
+        nextGeometry = preview.geometry_geojson;
         nextEstimated = { estimated_length_km: preview.estimated_length_km, estimated_duration_min: preview.estimated_duration_min };
-        setGeometry(nextGeometry);
-        setEstimated(nextEstimated);
-        setGeometryDirty(false);
       }
       const media = form.media_urls.filter(Boolean);
       const payload = cleanPayload({
@@ -128,7 +194,14 @@ export function RouteEditorPage({ mode = "create" }) {
         geometry_geojson: nextGeometry,
         estimated_duration_min: nextEstimated.estimated_duration_min,
         estimated_length_km: nextEstimated.estimated_length_km,
-        route_metadata: { cover_image_url: form.cover_image_url || media[0] || null, media_urls: media, geometry_format: "geojson" },
+        route_metadata: {
+          ...routeMetadata,
+          cover_image_url: form.cover_image_url || media[0] || null,
+          media_urls: media,
+          geometry_format: "geojson",
+          geometry_source: manualGeometry ? "custom" : "road",
+          manual_geometry_edited: manualGeometry
+        },
         points: selected.map((point_id, index) => ({ point_id, position: index + 1 }))
       });
       const saved = mode === "edit" ? await adminApi.updateRoute(id, payload) : await adminApi.createRoute(payload);
@@ -161,8 +234,14 @@ export function RouteEditorPage({ mode = "create" }) {
         onMovePoint={movePoint}
         onReorderPoint={reorderPoint}
         routeGeometry={geometry}
+        builtGeometry={builtGeometry}
         onGeometryChange={updateGeometry}
+        onBuildPlan={buildPlan}
+        onSaveGeometry={saveGeometryOnly}
+        onResetGeometry={resetGeometry}
         loading={building}
+        savingGeometry={savingGeometry}
+        needsRebuild={geometryDirty}
       />
       <section className="route-editor panel">
         <form className="stack" onSubmit={save}>
@@ -171,11 +250,18 @@ export function RouteEditorPage({ mode = "create" }) {
             <FormField label="Обложка маршрута"><input value={form.cover_image_url || ""} onChange={(event) => setForm({ ...form, cover_image_url: event.target.value })} placeholder="URL главной фотографии" /></FormField>
           </div>
           <FormField label="Описание"><textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Кратко опишите логику маршрута и ключевые темы экскурсии" /></FormField>
-          <MultiImageUploadField label="Фотографии маршрута" values={form.media_urls} onChange={(media_urls) => setForm({ ...form, media_urls, cover_image_url: form.cover_image_url || media_urls[0] || "" })} onUpload={upload} />
+          <MediaGalleryManager
+            label="Фотографии маршрута"
+            values={form.media_urls}
+            cover={form.cover_image_url}
+            onCoverChange={(cover_image_url) => setForm((prev) => ({ ...prev, cover_image_url }))}
+            onChange={(media_urls) => setForm({ ...form, media_urls, cover_image_url: form.cover_image_url || media_urls[0] || "" })}
+            onUpload={upload}
+          />
           <div className="actions-row">
             <Button type="submit" tone="primary" disabled={saving || building}><Save size={17} /> {saving ? "Сохраняем..." : "Сохранить маршрут"}</Button>
-            <span className="inline-hint">{geometryDirty ? "Линия будет построена при сохранении" : geometry ? `Путь: ${km(estimated.estimated_length_km)} · ${minutes(estimated.estimated_duration_min)}` : "Выберите минимум две точки"}</span>
-            {building && <span className="inline-loader"><Sparkles className="spin" size={17} /> Строим линию по дорогам</span>}
+            <span className="inline-hint">{geometryDirty ? "Постройте план экскурсии после изменения точек" : geometry ? `Путь: ${km(estimated.estimated_length_km)} · ${minutes(estimated.estimated_duration_min)}` : "Выберите минимум две точки"}</span>
+            {building && <span className="inline-loader"><Sparkles className="spin" size={17} /> Строим план экскурсии...</span>}
           </div>
         </form>
       </section>

@@ -1,6 +1,6 @@
 import React from "react";
 import { useParams } from "react-router-dom";
-import { CalendarCheck, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Users, WalletCards } from "lucide-react";
+import { CalendarCheck, CheckCircle2, ChevronLeft, ChevronRight, Clock3, WalletCards } from "lucide-react";
 import { adminApi, bookingsApi, excursionsApi, mediaUrl } from "../../api/client";
 import { RouteMap, MapLegend } from "../../components/map/RouteMap";
 import { Button } from "../../components/ui/Button";
@@ -179,17 +179,14 @@ export function ExcursionDetailPage() {
                 {!times.length && <span>Выберите день с доступной записью.</span>}
               </div>
             </div>
-            <div className="booking-participants">
-              <strong><Users size={18} /> Участники</strong>
-              <FormField label="Количество участников" required>
-                <input type="number" min="1" max={selectedSession?.available_places || item.max_participants} value={form.participants_count} onChange={(event) => setForm({ ...form, participants_count: event.target.value })} required />
-              </FormField>
-            </div>
             <div className="booking-contact-grid">
               <div className="booking-contact-fields">
                 <FormField label="ФИО" required><input value={form.customer_name} onChange={(event) => setForm({ ...form, customer_name: event.target.value })} required /></FormField>
                 <FormField label="Телефон"><input value={form.customer_phone} placeholder="+7..." onChange={(event) => setForm({ ...form, customer_phone: event.target.value })} /></FormField>
                 <FormField label="Email"><input type="email" value={form.customer_email} placeholder="name@example.ru" onChange={(event) => setForm({ ...form, customer_email: event.target.value })} /></FormField>
+                <FormField label="Количество участников" required>
+                  <input type="number" min="1" max={selectedSession?.available_places || item.max_participants} value={form.participants_count} onChange={(event) => setForm({ ...form, participants_count: event.target.value })} required />
+                </FormField>
               </div>
               <FormField label="Сообщение или комментарий"><textarea value={form.comment} onChange={(event) => setForm({ ...form, comment: event.target.value })} /></FormField>
             </div>
@@ -207,12 +204,17 @@ export function ExcursionDetailPage() {
 
 function HeroCarouselBackground({ images }) {
   const list = images.length ? images : [placeholderImage];
-  const doubled = [...list, ...list];
+  const [index, setIndex] = React.useState(0);
+  React.useEffect(() => {
+    if (list.length < 2 || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return undefined;
+    const timer = window.setInterval(() => setIndex((current) => (current + 1) % list.length), 4000);
+    return () => window.clearInterval(timer);
+  }, [list.length]);
   return (
     <div className="hero-carousel-bg" aria-hidden>
-      <div className="hero-carousel-track">
-        {doubled.map((image, index) => <img key={`${image}-${index}`} src={mediaUrl(image)} alt="" />)}
-      </div>
+      {list.map((image, imageIndex) => (
+        <img key={`${image}-${imageIndex}`} className={`hero-carousel-image ${imageIndex === index ? "is-active" : ""}`} src={mediaUrl(image)} alt="" />
+      ))}
     </div>
   );
 }

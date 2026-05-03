@@ -4,10 +4,9 @@ import { MapPin, Save, Trash2 } from "lucide-react";
 import { adminApi, mediaUrl } from "../../api/client";
 import { Button } from "../../components/ui/Button";
 import { FormField } from "../../components/ui/FormField";
-import { MultiImageUploadField } from "../../components/ui/MultiImageUploadField";
+import { MediaGalleryManager } from "../../components/ui/MediaGalleryManager";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { LoadingState } from "../../components/ui/State";
-import { UploadField } from "../../components/ui/UploadField";
 import { useAdminData } from "../../hooks/useAdminData";
 import { useToast } from "../../context/ToastContext";
 import { cleanPayload, mediaGallery, placeholderImage } from "../../utils/format";
@@ -36,8 +35,8 @@ export function PointsPage() {
       const media = form.media_urls || [];
       const payload = cleanPayload({
         ...form,
-        address: null,
-        short_description: form.full_description ? form.full_description.slice(0, 480) : null,
+        address: form.address || null,
+        short_description: form.short_description || (form.full_description ? form.full_description.slice(0, 480) : null),
         image_url: form.image_url || media[0] || null,
         extra: { ...(form.extra || {}), media_urls: media },
         latitude: Number(form.latitude),
@@ -94,15 +93,41 @@ export function PointsPage() {
         </div>
         <form className="point-editor panel stack" onSubmit={submit}>
           <h2>{editingId ? "Редактирование точки" : "Новая точка"}</h2>
-          <FormField label="Название" required><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></FormField>
-          <FormField label="Описание"><textarea value={form.full_description || ""} onChange={(event) => setForm({ ...form, full_description: event.target.value, short_description: event.target.value.slice(0, 480) })} /></FormField>
-          <div className="form-grid">
-            <FormField label="Широта" required><input type="number" step="0.0000001" value={form.latitude} readOnly required /></FormField>
-            <FormField label="Долгота" required><input type="number" step="0.0000001" value={form.longitude} readOnly required /></FormField>
+          <section className="point-editor__section">
+            <h3>Основные данные</h3>
+            <div className="form-grid">
+              <FormField label="Название" required><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></FormField>
+              <FormField label="Время посещения, мин"><input type="number" min="1" value={form.visit_duration_min} onChange={(event) => setForm({ ...form, visit_duration_min: event.target.value })} /></FormField>
+            </div>
+          </section>
+          <section className="point-editor__section">
+            <h3>Координаты и адрес</h3>
+            <div className="form-grid">
+              <FormField label="Широта" required><input type="number" step="0.0000001" value={form.latitude} readOnly required /></FormField>
+              <FormField label="Долгота" required><input type="number" step="0.0000001" value={form.longitude} readOnly required /></FormField>
+            </div>
+            <FormField label="Адрес"><input value={form.address || ""} onChange={(event) => setForm({ ...form, address: event.target.value })} /></FormField>
+          </section>
+          <section className="point-editor__section">
+            <h3>Описание</h3>
+            <FormField label="Краткое описание"><input value={form.short_description || ""} maxLength={500} onChange={(event) => setForm({ ...form, short_description: event.target.value })} /></FormField>
+            <FormField label="Полное описание"><textarea value={form.full_description || ""} onChange={(event) => setForm({ ...form, full_description: event.target.value })} /></FormField>
+          </section>
+          <section className="point-editor__section">
+            <h3>Фотографии</h3>
+            <MediaGalleryManager
+              label="Фотографии точки"
+              values={form.media_urls || []}
+              cover={form.image_url}
+              onCoverChange={(image_url) => setForm((prev) => ({ ...prev, image_url }))}
+              onChange={(media_urls) => setForm({ ...form, media_urls, image_url: form.image_url || media_urls[0] || "" })}
+              onUpload={upload}
+            />
+          </section>
+          <div className="point-editor__section point-editor__section--actions">
+            <h3>Активность</h3>
+            <label className="switch-line"><input type="checkbox" checked={form.active !== false} onChange={(event) => setForm({ ...form, active: event.target.checked })} /> Точка доступна для маршрутов</label>
           </div>
-          <FormField label="Время посещения, мин"><input type="number" min="1" value={form.visit_duration_min} onChange={(event) => setForm({ ...form, visit_duration_min: event.target.value })} /></FormField>
-          <UploadField label="Главное изображение точки" value={form.image_url} onChange={(value) => setForm({ ...form, image_url: value })} onUpload={async (file) => { const asset = await upload(file); setForm((prev) => ({ ...prev, image_url: asset.url, media_urls: [...new Set([asset.url, ...(prev.media_urls || [])])] })); }} />
-          <MultiImageUploadField label="Фотографии точки" values={form.media_urls || []} onChange={(media_urls) => setForm({ ...form, media_urls, image_url: form.image_url || media_urls[0] || "" })} onUpload={upload} />
           <div className="actions-row">
             <Button type="submit" tone="primary"><Save size={17} /> Сохранить</Button>
             <Button type="button" tone="neutral" onClick={() => { setForm(empty); setEditingId(null); }}><MapPin size={17} /> Новая</Button>
@@ -125,16 +150,46 @@ function PointsLayer({ points, editingId, onEdit, onCreate, onMove }) {
     const position = pointPosition(point);
     if (!position) return null;
     return (
-      <Marker key={point.id} position={position} draggable icon={pointIcon("", editingId === point.id ? "active" : "default", true)} eventHandlers={{ click: () => onEdit(point), dragend: (event) => onMove(point, event.target.getLatLng()) }}>
-        <Popup>
+      <Marker
+        key={point.id}
+        position={position}
+        draggable
+        icon={pointIcon({ imageUrl: mediaUrl(mediaGallery(point)[0] || point.image_url || ""), active: editingId === point.id })}
+        eventHandlers={{
+          click: (event) => {
+            event.originalEvent?.stopPropagation?.();
+            onEdit(point);
+          },
+          dragend: (event) => onMove(point, event.target.getLatLng())
+        }}
+      >
+        <Popup autoPan={false}>
           <article className="map-popup">
-            <img src={mediaUrl(point.image_url || placeholderImage)} alt="" />
+            <PointPopupCarousel images={mediaGallery(point).length ? mediaGallery(point) : [point.image_url || placeholderImage]} />
             <strong>{point.name}</strong>
             <p>{point.short_description || point.address || "Точка интереса"}</p>
+            {point.address && <small>{point.address}</small>}
+            <small>Время посещения: {point.visit_duration_min || 15} мин</small>
             <button type="button" onClick={() => onEdit(point)}>Редактировать</button>
           </article>
         </Popup>
       </Marker>
     );
   });
+}
+
+function PointPopupCarousel({ images }) {
+  const [index, setIndex] = React.useState(0);
+  React.useEffect(() => {
+    if (images.length < 2) return undefined;
+    const timer = window.setInterval(() => setIndex((current) => (current + 1) % images.length), 4000);
+    return () => window.clearInterval(timer);
+  }, [images.length]);
+  return (
+    <div className="map-popup__carousel">
+      {images.map((image, imageIndex) => (
+        <img key={`${image}-${imageIndex}`} className={imageIndex === index ? "is-active" : ""} src={mediaUrl(image || placeholderImage)} alt="" />
+      ))}
+    </div>
+  );
 }

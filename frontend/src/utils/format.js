@@ -1,3 +1,5 @@
+import { geoJsonToLeafletLatLngs } from "./geojson";
+
 export const placeholderImage = import.meta.env.VITE_PLACEHOLDER_IMAGE || "https://placehold.co/900x600/e7eef0/284252?text=GIDIX";
 
 export function money(value) {
@@ -34,14 +36,7 @@ export function sortedRoutePoints(route) {
 }
 
 export function routeLine(route) {
-  const osrm = route?.geometry_geojson?.coordinates?.map(([lon, lat]) => [lat, lon]) || [];
-  if (osrm.length > 1) return { positions: osrm, source: "osrm" };
-  return {
-    positions: sortedRoutePoints(route)
-      .filter((link) => Number.isFinite(Number(link?.point?.latitude)) && Number.isFinite(Number(link?.point?.longitude)))
-      .map((link) => [Number(link.point.latitude), Number(link.point.longitude)]),
-    source: "manual"
-  };
+  return { positions: geoJsonToLeafletLatLngs(route?.geometry_geojson), source: "geojson" };
 }
 
 export function mediaGallery(entity) {

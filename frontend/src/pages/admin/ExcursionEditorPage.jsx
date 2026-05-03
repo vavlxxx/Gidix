@@ -4,10 +4,9 @@ import { ArrowLeft, Save, Sparkles } from "lucide-react";
 import { adminApi, excursionsApi, mediaUrl } from "../../api/client";
 import { Button } from "../../components/ui/Button";
 import { FormField } from "../../components/ui/FormField";
-import { MultiImageUploadField } from "../../components/ui/MultiImageUploadField";
+import { MediaGalleryManager } from "../../components/ui/MediaGalleryManager";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/ui/State";
-import { UploadField } from "../../components/ui/UploadField";
 import { useToast } from "../../context/ToastContext";
 import { useAdminData } from "../../hooks/useAdminData";
 import { cleanPayload, coverForExcursion, mediaGallery, placeholderImage } from "../../utils/format";
@@ -153,8 +152,14 @@ export function ExcursionEditorPage() {
             </FormField>
           </div>
           <FormField label="Место встречи"><input value={form.meeting_point || ""} onChange={(event) => setForm({ ...form, meeting_point: event.target.value })} placeholder="Например: у главного входа в музей" /></FormField>
-          <UploadField label="Главное фото экскурсии" value={form.image_url} onChange={(value) => setForm({ ...form, image_url: value })} onUpload={async (file) => { const asset = await upload(file); setForm((prev) => ({ ...prev, image_url: asset.url, media_urls: [...new Set([asset.url, ...(prev.media_urls || [])])] })); }} />
-          <MultiImageUploadField label="Фотографии экскурсии" values={form.media_urls || []} onChange={(media_urls) => setForm({ ...form, media_urls, image_url: form.image_url || media_urls[0] || "" })} onUpload={upload} />
+          <MediaGalleryManager
+            label="Фотографии экскурсии"
+            values={form.media_urls || []}
+            cover={form.image_url}
+            onCoverChange={(image_url) => setForm((prev) => ({ ...prev, image_url }))}
+            onChange={(media_urls) => setForm({ ...form, media_urls, image_url: form.image_url || media_urls[0] || "" })}
+            onUpload={upload}
+          />
           <div className="actions-row">
             <Button type="submit" tone="primary" disabled={saving}><Save size={17} /> {saving ? "Сохраняем..." : "Сохранить экскурсию"}</Button>
             <Button as="link" to="/admin/sessions" tone="neutral">Перейти к расписанию</Button>

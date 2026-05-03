@@ -78,6 +78,11 @@ class RouteCreate(BaseDTO):
     points: list[RoutePointIn] = []
     active: bool = True
 
+    @field_validator("geometry_geojson")
+    @classmethod
+    def validate_geometry_geojson(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        return validate_route_geometry_geojson(value)
+
 
 class RouteUpdate(BaseDTO):
     title: str | None = None
@@ -92,6 +97,11 @@ class RouteUpdate(BaseDTO):
     route_metadata: dict[str, Any] | None = None
     points: list[RoutePointIn] | None = None
     active: bool | None = None
+
+    @field_validator("geometry_geojson")
+    @classmethod
+    def validate_geometry_geojson(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        return validate_route_geometry_geojson(value)
 
 
 class RoutePointRead(RoutePointIn):
@@ -114,6 +124,11 @@ class RouteRead(BaseDTO):
     active: bool
     points: list[RoutePointRead] = []
 
+    @field_validator("geometry_geojson")
+    @classmethod
+    def validate_geometry_geojson(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        return validate_route_geometry_geojson(value)
+
 
 class RouteGenerateRequest(BaseDTO):
     title: str = "Автоматический маршрут"
@@ -123,11 +138,69 @@ class RouteGenerateRequest(BaseDTO):
     algorithm: str | None = None
 
 
+class RoutePreviewRoadRequest(BaseDTO):
+    point_ids: list[int] = Field(..., min_length=2)
+    preserve_order: bool = True
+    start_point_id: int | None = None
+    finish_point_id: int | None = None
+
+
+class RouteBuildPlanRequest(BaseDTO):
+    title: str = "Новый маршрут"
+    description: str | None = None
+    point_ids: list[int] = Field(..., min_length=2)
+    start_point_id: int | None = None
+    finish_point_id: int | None = None
+
+
+class RouteGeometryUpdate(BaseDTO):
+    geometry_geojson: dict[str, Any]
+    is_geometry_customized: bool = True
+
+    @field_validator("geometry_geojson")
+    @classmethod
+    def validate_geometry_geojson(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return validate_route_geometry_geojson(value)
+
+
 class RoutePreviewRead(BaseDTO):
     geometry_geojson: dict[str, Any] | None = None
     estimated_duration_min: int | None = None
     estimated_length_km: Decimal | None = None
     points: list[RoutePointIn] = []
+    snapped_points: list[dict[str, Any]] = []
+
+    @field_validator("geometry_geojson")
+    @classmethod
+    def validate_geometry_geojson(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        return validate_route_geometry_geojson(value)
+
+
+def validate_route_geometry_geojson(value: dict[str, Any] | None) -> dict[str, Any] | None:
+    if value is None:
+        return value
+    if not isinstance(value, dict):
+        raise ValueError("geometry_geojson должен быть GeoJSON LineString.")
+    if value.get("type") != "LineString":
+        raise ValueError("geometry_geojson должен иметь type='LineString'.")
+    coordinates = value.get("coordinates")
+    if not isinstance(coordinates, list) or len(coordinates) < 2:
+        raise ValueError("geometry_geojson.coordinates должен содержать минимум две координаты.")
+    normalized: list[list[float]] = []
+    for index, coordinate in enumerate(coordinates, start=1):
+        if not isinstance(coordinate, (list, tuple)) or len(coordinate) != 2:
+            raise ValueError(f"Координата #{index} должна быть массивом [lon, lat].")
+        lon, lat = coordinate
+        if not isinstance(lon, (int, float)) or not isinstance(lat, (int, float)):
+            raise ValueError(f"Координата #{index} должна содержать числовые lon и lat.")
+        lon_value = float(lon)
+        lat_value = float(lat)
+        if not (-180 <= lon_value <= 180):
+            raise ValueError(f"Координата #{index}: longitude должен быть от -180 до 180.")
+        if not (-90 <= lat_value <= 90):
+            raise ValueError(f"Координата #{index}: latitude должен быть от -90 до 90.")
+        normalized.append([lon_value, lat_value])
+    return {"type": "LineString", "coordinates": normalized}
 
 
 class ExcursionCreate(BaseDTO):

@@ -56,7 +56,7 @@ export function RoutesPage() {
       <PageHeader
         eyebrow="Маршруты"
         title="Список маршрутов"
-        description="Здесь хранятся маршруты с GeoJSON-линиями, точками посещения и медиа для программ экскурсий."
+        description="Здесь хранятся маршруты с построенной линией прогулки, точками посещения и медиа для программ экскурсий."
         actions={<Button as="link" to="/admin/routes/new" tone="primary"><Plus size={17} /> Создать маршрут</Button>}
       />
       {loading && <LoadingState text="Загрузка маршрутов" />}

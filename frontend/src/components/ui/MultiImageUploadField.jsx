@@ -3,7 +3,7 @@ import { ImagePlus, X } from "lucide-react";
 import { mediaUrl } from "../../api/client";
 import { FormField } from "./FormField";
 
-export function MultiImageUploadField({ label = "Фотографии", values = [], onChange, onUpload }) {
+export function MultiImageUploadField({ label = "Фотографии", values = [], onChange, onUpload, showPreview = true }) {
   const [uploading, setUploading] = React.useState(false);
 
   async function uploadFiles(files) {
@@ -35,7 +35,7 @@ export function MultiImageUploadField({ label = "Фотографии", values =
           <input type="file" accept="image/*" multiple hidden disabled={uploading} onChange={(event) => uploadFiles(event.target.files)} />
         </label>
       </div>
-      {!!values.length && (
+      {showPreview && !!values.length && (
         <div className="multi-upload__grid">
           {values.map((value, index) => (
             <figure key={`${value}-${index}`}>

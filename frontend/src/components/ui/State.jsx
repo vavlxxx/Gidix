@@ -1,7 +1,12 @@
-import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 
-export function LoadingState({ text = "Загрузка данных" }) {
-  return <div className="state state--loading"><Loader2 className="spin" size={18} aria-hidden /> {text}</div>;
+export function LoadingState({ text = "Загрузка..." }) {
+  return (
+    <div className="state state--loading">
+      <span className="loader-orbit loader-orbit--large" aria-hidden />
+      <span>{text}</span>
+    </div>
+  );
 }
 
 export function ErrorState({ text = "Не удалось загрузить данные." }) {

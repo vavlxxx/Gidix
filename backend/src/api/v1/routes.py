@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
@@ -7,7 +9,17 @@ from sqlalchemy.orm import selectinload
 from src.api.v1.dependencies.auth import require_any_role
 from src.api.v1.dependencies.db import DBDep
 from src.models.domain import Route, RoutePoint
-from src.schemas.domain import RouteCreate, RouteGenerateRequest, RoutePointIn, RoutePreviewRead, RouteRead, RouteUpdate
+from src.schemas.domain import (
+    RouteBuildPlanRequest,
+    RouteCreate,
+    RouteGenerateRequest,
+    RouteGeometryUpdate,
+    RoutePointIn,
+    RoutePreviewRead,
+    RoutePreviewRoadRequest,
+    RouteRead,
+    RouteUpdate,
+)
 from src.services.route_service import RouteService
 
 router = APIRouter(prefix="/routes", tags=["routes"])
@@ -33,7 +45,7 @@ async def create_route(db: DBDep, data: RouteCreate) -> Route:
     if data.geometry_geojson:
         _apply_order_metadata(route, data.points)
     elif len(data.points) >= 2:
-        await _apply_ordered_geometry(db, route, data.points)
+        await _try_apply_ordered_geometry(db, route, data.points)
     await db.commit()
     return await RouteService(db).get_route(route.id)
 
@@ -46,19 +58,28 @@ async def generate_route(db: DBDep, data: RouteGenerateRequest) -> Route:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.post("/preview-road", response_model=RoutePreviewRead, dependencies=[admin_dep])
+async def preview_road_route(db: DBDep, data: RoutePreviewRoadRequest) -> RoutePreviewRead:
+    try:
+        plan = await RouteService(db).preview_road(data)
+        return _plan_preview(plan)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/build-plan", response_model=RouteRead, dependencies=[admin_dep])
+async def build_route_plan(db: DBDep, data: RouteBuildPlanRequest) -> Route:
+    try:
+        return await RouteService(db).create_built_route(data)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post("/preview", response_model=RoutePreviewRead, dependencies=[admin_dep])
 async def preview_route(db: DBDep, data: RouteGenerateRequest) -> RoutePreviewRead:
     try:
-        points = await RouteService(db)._load_points(data.point_ids)
-        if len(points) < 2:
-            raise ValueError("At least two points are required")
-        route_data = await RouteService(db)._get_route(points)
-        return RoutePreviewRead(
-            geometry_geojson=route_data["geometry"],
-            estimated_duration_min=round(route_data["duration"] / 60),
-            estimated_length_km=round(route_data["distance"] / 1000, 2),
-            points=[RoutePointIn(point_id=point.id, position=index + 1, visit_duration_min=point.visit_duration_min) for index, point in enumerate(points)],
-        )
+        plan = await RouteService(db).preview_road(RoutePreviewRoadRequest(point_ids=data.point_ids, preserve_order=True))
+        return _plan_preview(plan)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -88,11 +109,28 @@ async def update_route(db: DBDep, route_id: int, data: RouteUpdate) -> Route:
         if data.geometry_geojson is not None:
             _apply_order_metadata(route, data.points)
         elif len(data.points) >= 2:
-            await _apply_ordered_geometry(db, route, data.points)
+            await _try_apply_ordered_geometry(db, route, data.points)
         else:
             route.geometry_geojson = None
             route.estimated_length_km = None
             route.estimated_duration_min = None
+    await db.commit()
+    return await RouteService(db).get_route(route_id)
+
+
+@router.put("/{route_id}/geometry", response_model=RouteRead, dependencies=[admin_dep])
+async def update_route_geometry(db: DBDep, route_id: int, data: RouteGeometryUpdate) -> Route:
+    route = await db.session.get(Route, route_id)
+    if route is None:
+        raise HTTPException(status_code=404, detail="Route not found")
+    route.geometry_geojson = data.geometry_geojson
+    route.route_metadata = {
+        **(route.route_metadata or {}),
+        "geometry_format": "geojson",
+        "geometry_source": "custom" if data.is_geometry_customized else "road",
+        "manual_geometry_edited": data.is_geometry_customized,
+        "last_geometry_saved_at": datetime.utcnow().isoformat(),
+    }
     await db.commit()
     return await RouteService(db).get_route(route_id)
 
@@ -107,19 +145,33 @@ async def delete_route(db: DBDep, route_id: int) -> dict[str, str]:
     return {"detail": "Route deleted"}
 
 
-async def _apply_ordered_geometry(db: DBDep, route: Route, points: list[RoutePointIn]) -> None:
+async def _try_apply_ordered_geometry(db: DBDep, route: Route, points: list[RoutePointIn]) -> None:
     ordered = sorted(points, key=lambda item: item.position)
-    ordered_points = await RouteService(db)._load_points([item.point_id for item in ordered])
-    route_data = await RouteService(db)._get_route(ordered_points)
-    route.start_point_id = ordered_points[0].id
-    route.finish_point_id = ordered_points[-1].id
-    route.estimated_duration_min = round(route_data["duration"] / 60)
-    route.estimated_length_km = round(route_data["distance"] / 1000, 2)
-    route.geometry_geojson = route_data["geometry"]
+    route.start_point_id = ordered[0].point_id
+    route.finish_point_id = ordered[-1].point_id
+    try:
+        plan = await RouteService(db).preview_road(RoutePreviewRoadRequest(point_ids=[item.point_id for item in ordered], preserve_order=True))
+    except ValueError as exc:
+        route.geometry_geojson = None
+        route.route_metadata = {
+            **(route.route_metadata or {}),
+            "geometry_format": "geojson",
+            "manual_geometry_edited": False,
+            "last_build_error": str(exc),
+        }
+        return
+    route.estimated_duration_min = round(plan.duration / 60)
+    route.estimated_length_km = round(plan.distance / 1000, 2)
+    route.geometry_geojson = plan.geometry
     route.route_metadata = {
         **(route.route_metadata or {}),
         "geometry_format": "geojson",
-        "routing_source": route_data.get("source"),
+        "geometry_source": "road",
+        "manual_geometry_edited": False,
+        "distance_meters": plan.distance,
+        "duration_seconds": plan.duration,
+        "snapped_points": plan.snapped_points,
+        "last_built_at": datetime.utcnow().isoformat(),
     }
 
 
@@ -133,3 +185,16 @@ def _apply_order_metadata(route: Route, points: list[RoutePointIn] | None) -> No
         **(route.route_metadata or {}),
         "geometry_format": "geojson",
     }
+
+
+def _plan_preview(plan) -> RoutePreviewRead:
+    return RoutePreviewRead(
+        geometry_geojson=plan.geometry,
+        estimated_duration_min=round(plan.duration / 60),
+        estimated_length_km=round(plan.distance / 1000, 2),
+        points=[
+            RoutePointIn(point_id=point.id, position=index + 1, visit_duration_min=point.visit_duration_min)
+            for index, point in enumerate(plan.ordered_points)
+        ],
+        snapped_points=plan.snapped_points,
+    )
