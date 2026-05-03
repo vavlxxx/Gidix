@@ -1,9 +1,8 @@
 import React from "react";
-import { Link } from "react-router-dom";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap } from "react-leaflet";
 import { mediaUrl } from "../../api/client";
 import { mediaGallery, placeholderImage, routeLine, sortedRoutePoints } from "../../utils/format";
-import { pointIcon, pointPosition, tileAttribution, tileUrl } from "../../utils/map";
+import { createPoiMarkerIcon, pointPosition, tileAttribution, tileUrl } from "../../utils/map";
 
 export function RouteMap({ route, excursion, highlightedPointId, className = "route-map" }) {
   const points = React.useMemo(() => sortedRoutePoints(route).filter((link) => pointPosition(link?.point)), [route]);
@@ -35,8 +34,7 @@ export function RouteMap({ route, excursion, highlightedPointId, className = "ro
           <Marker
             key={link.id || `${link.point_id}-${index}`}
             position={pointPosition(link.point)}
-            icon={pointIcon({
-              imageUrl: mediaUrl(gallery[0] || link.point?.image_url || ""),
+            icon={createPoiMarkerIcon(link.point, {
               label: index + 1,
               selected: true,
               active: highlightedPointId === link.point_id,
@@ -50,7 +48,6 @@ export function RouteMap({ route, excursion, highlightedPointId, className = "ro
                 <p>{link.point.short_description || link.note || "Точка маршрута"}</p>
                 {link.point.address && <small>{link.point.address}</small>}
                 <small>Время посещения: {link.visit_duration_min || link.point.visit_duration_min || 15} мин</small>
-                {excursion && <Link className="popup-link" to={`/excursions/${excursion.id}`}>Открыть экскурсию</Link>}
               </article>
             </Popup>
           </Marker>

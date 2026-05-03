@@ -10,7 +10,7 @@ import { LoadingState } from "../../components/ui/State";
 import { useAdminData } from "../../hooks/useAdminData";
 import { useToast } from "../../context/ToastContext";
 import { cleanPayload, mediaGallery, placeholderImage } from "../../utils/format";
-import { pointIcon, pointPosition, tileAttribution, tileUrl } from "../../utils/map";
+import { createPoiMarkerIcon, pointIcon, pointPosition, tileAttribution, tileUrl } from "../../utils/map";
 
 const empty = { name: "", short_description: "", full_description: "", address: "", latitude: "", longitude: "", visit_duration_min: 20, image_url: "", media_urls: [] };
 
@@ -19,6 +19,9 @@ export function PointsPage() {
   const { state, loading, refresh } = useAdminData();
   const [form, setForm] = React.useState(empty);
   const [editingId, setEditingId] = React.useState(null);
+  const draftPosition = !editingId && Number.isFinite(Number(form.latitude)) && Number.isFinite(Number(form.longitude))
+    ? [Number(form.latitude), Number(form.longitude)]
+    : null;
 
   function edit(point) {
     setEditingId(point.id);
@@ -79,6 +82,7 @@ export function PointsPage() {
             <PointsLayer
               points={state.points}
               editingId={editingId}
+              draftPosition={draftPosition}
               onEdit={edit}
               onMove={(point, latlng) => {
                 setEditingId(point.id);
@@ -139,14 +143,14 @@ export function PointsPage() {
   );
 }
 
-function PointsLayer({ points, editingId, onEdit, onCreate, onMove }) {
+function PointsLayer({ points, editingId, draftPosition, onEdit, onCreate, onMove }) {
   useMapEvents({
     click(event) {
       onCreate(event.latlng);
     }
   });
 
-  return points.map((point) => {
+  const markers = points.map((point) => {
     const position = pointPosition(point);
     if (!position) return null;
     return (
@@ -154,7 +158,7 @@ function PointsLayer({ points, editingId, onEdit, onCreate, onMove }) {
         key={point.id}
         position={position}
         draggable
-        icon={pointIcon({ imageUrl: mediaUrl(mediaGallery(point)[0] || point.image_url || ""), active: editingId === point.id })}
+        icon={createPoiMarkerIcon(point, { active: editingId === point.id })}
         eventHandlers={{
           click: (event) => {
             event.originalEvent?.stopPropagation?.();
@@ -176,6 +180,15 @@ function PointsLayer({ points, editingId, onEdit, onCreate, onMove }) {
       </Marker>
     );
   });
+
+  return (
+    <>
+      {markers}
+      {draftPosition && (
+        <Marker position={draftPosition} icon={pointIcon({ variant: "draft-point" })} interactive={false} />
+      )}
+    </>
+  );
 }
 
 function PointPopupCarousel({ images }) {

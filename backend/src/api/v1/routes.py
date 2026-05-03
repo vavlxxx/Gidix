@@ -114,6 +114,9 @@ async def update_route(db: DBDep, route_id: int, data: RouteUpdate) -> Route:
             route.geometry_geojson = None
             route.estimated_length_km = None
             route.estimated_duration_min = None
+    point_exists = await db.session.scalar(select(RoutePoint.id).where(RoutePoint.route_id == route_id).limit(1))
+    if point_exists is None:
+        raise HTTPException(status_code=400, detail="Route must include at least one point")
     await db.commit()
     return await RouteService(db).get_route(route_id)
 

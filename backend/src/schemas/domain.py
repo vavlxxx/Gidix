@@ -83,6 +83,12 @@ class RouteCreate(BaseDTO):
     def validate_geometry_geojson(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
         return validate_route_geometry_geojson(value)
 
+    @model_validator(mode="after")
+    def validate_route_has_points(self) -> "RouteCreate":
+        if not self.points:
+            raise ValueError("Route must include at least one point")
+        return self
+
 
 class RouteUpdate(BaseDTO):
     title: str | None = None
@@ -102,6 +108,12 @@ class RouteUpdate(BaseDTO):
     @classmethod
     def validate_geometry_geojson(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
         return validate_route_geometry_geojson(value)
+
+    @model_validator(mode="after")
+    def validate_route_has_points_when_updated(self) -> "RouteUpdate":
+        if self.points is not None and not self.points:
+            raise ValueError("Route must include at least one point")
+        return self
 
 
 class RoutePointRead(RoutePointIn):

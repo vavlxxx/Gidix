@@ -23,6 +23,7 @@ export function RouteEditorPage({ mode = "create" }) {
   const [selected, setSelected] = React.useState([]);
   const [geometry, setGeometry] = React.useState(null);
   const [builtGeometry, setBuiltGeometry] = React.useState(null);
+  const [savedGeometry, setSavedGeometry] = React.useState(null);
   const [estimated, setEstimated] = React.useState({ estimated_length_km: null, estimated_duration_min: null });
   const [routeMetadata, setRouteMetadata] = React.useState({});
   const [loading, setLoading] = React.useState(mode === "edit");
@@ -52,6 +53,7 @@ export function RouteEditorPage({ mode = "create" }) {
         });
         setSelected([...(route.points || [])].sort((a, b) => a.position - b.position).map((link) => link.point_id));
         setGeometry(route.geometry_geojson || null);
+        setSavedGeometry(route.geometry_geojson || null);
         setBuiltGeometry(route.route_metadata?.manual_geometry_edited ? null : route.geometry_geojson || null);
         setEstimated({ estimated_length_km: route.estimated_length_km, estimated_duration_min: route.estimated_duration_min });
         setRouteMetadata(route.route_metadata || {});
@@ -137,8 +139,9 @@ export function RouteEditorPage({ mode = "create" }) {
   }
 
   function resetGeometry() {
-    if (!builtGeometry) return;
-    setGeometry(builtGeometry);
+    const targetGeometry = builtGeometry || savedGeometry;
+    if (!targetGeometry) return;
+    setGeometry(targetGeometry);
     setManualGeometry(false);
     setGeometryDirty(false);
   }
@@ -156,6 +159,7 @@ export function RouteEditorPage({ mode = "create" }) {
     try {
       const saved = await adminApi.updateRouteGeometry(id, { geometry_geojson: geometry, is_geometry_customized: manualGeometry });
       setGeometry(saved.geometry_geojson || geometry);
+      setSavedGeometry(saved.geometry_geojson || geometry);
       setRouteMetadata(saved.route_metadata || {});
       notify.success("Изменения линии сохранены.");
     } catch (err) {
@@ -205,6 +209,7 @@ export function RouteEditorPage({ mode = "create" }) {
         points: selected.map((point_id, index) => ({ point_id, position: index + 1 }))
       });
       const saved = mode === "edit" ? await adminApi.updateRoute(id, payload) : await adminApi.createRoute(payload);
+      setSavedGeometry(saved.geometry_geojson || nextGeometry);
       notify.success(mode === "edit" ? "Маршрут обновлён." : "Маршрут создан.");
       refresh();
       navigate(`/admin/routes/${saved.id}/edit`, { replace: true });
@@ -218,6 +223,8 @@ export function RouteEditorPage({ mode = "create" }) {
 
   if (loading || listsLoading) return <LoadingState text="Загрузка конструктора маршрута" />;
   if (error) return <ErrorState text={error} />;
+
+  const cancelGeometryTarget = builtGeometry || savedGeometry;
 
   return (
     <div>
@@ -234,7 +241,7 @@ export function RouteEditorPage({ mode = "create" }) {
         onMovePoint={movePoint}
         onReorderPoint={reorderPoint}
         routeGeometry={geometry}
-        builtGeometry={builtGeometry}
+        builtGeometry={cancelGeometryTarget}
         onGeometryChange={updateGeometry}
         onBuildPlan={buildPlan}
         onSaveGeometry={saveGeometryOnly}
@@ -259,7 +266,7 @@ export function RouteEditorPage({ mode = "create" }) {
             onUpload={upload}
           />
           <div className="actions-row">
-            <Button type="submit" tone="primary" disabled={saving || building}><Save size={17} /> {saving ? "Сохраняем..." : "Сохранить маршрут"}</Button>
+            <Button type="submit" tone="primary" disabled={saving || building || selected.length < 2}><Save size={17} /> {saving ? "Сохраняем..." : "Сохранить маршрут"}</Button>
             <span className="inline-hint">{geometryDirty ? "Постройте план экскурсии после изменения точек" : geometry ? `Путь: ${km(estimated.estimated_length_km)} · ${minutes(estimated.estimated_duration_min)}` : "Выберите минимум две точки"}</span>
             {building && <span className="inline-loader"><Sparkles className="spin" size={17} /> Строим план экскурсии...</span>}
           </div>

@@ -1,10 +1,10 @@
 import React from "react";
-import { ArrowDown, ArrowUp, GripVertical, Pencil, Plus, RotateCcw, Save, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Plus, RotateCcw, Save, Trash2, X } from "lucide-react";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap } from "react-leaflet";
 import { mediaUrl } from "../../api/client";
 import { geoJsonToLeafletLatLngs, leafletLatLngsToGeoJson } from "../../utils/geojson";
 import { mediaGallery, placeholderImage } from "../../utils/format";
-import { pointIcon, pointPosition, tileAttribution, tileUrl } from "../../utils/map";
+import { createPoiMarkerIcon, pointIcon, pointPosition, tileAttribution, tileUrl } from "../../utils/map";
 import { Button } from "../ui/Button";
 
 export function AdminRouteBuilderMap({
@@ -121,7 +121,7 @@ export function AdminRouteBuilderMap({
               <Marker
                 key={point.id}
                 position={position}
-                icon={pointIcon({ imageUrl: mediaUrl(mediaGallery(point)[0] || point.image_url || ""), label: selected ? selectedIndex + 1 : "", selected, active: selected })}
+                icon={createPoiMarkerIcon(point, { label: selected ? selectedIndex + 1 : "", selected, active: selected })}
               >
                 <Tooltip>{point.name}</Tooltip>
                 <Popup autoPan={false}>
@@ -131,28 +131,28 @@ export function AdminRouteBuilderMap({
             );
           })}
         </MapContainer>
-        <div className="map-toolbar">
-          <Button type="button" tone="primary" onClick={onBuildPlan} disabled={loading || selectedIds.length < 2}>
-            <Plus size={17} /> Построить план экскурсии
-          </Button>
-          {!editing ? (
-            <Button type="button" tone="neutral" onClick={startEditing} disabled={plannedLine.length < 2 || loading}>
-              <Pencil size={17} /> Редактировать линию
-            </Button>
-          ) : (
-            <>
-              <Button type="button" tone="primary" onClick={finishEditing}><Save size={17} /> Завершить редактирование</Button>
-              <Button type="button" tone="neutral" onClick={cancelEditing}><RotateCcw size={17} /> Отменить</Button>
-            </>
-          )}
-          <Button type="button" tone="neutral" onClick={onSaveGeometry} disabled={savingGeometry || !plannedLine.length || loading}>
-            <Save size={17} /> {savingGeometry ? "Сохраняем..." : "Сохранить изменения"}
-          </Button>
-          <Button type="button" tone="neutral" onClick={onResetGeometry} disabled={!builtGeometry || loading}>
-            <RotateCcw size={17} /> Сбросить к построенному плану
-          </Button>
-        </div>
         {loading && <div className="map-loading"><span className="loader-orbit loader-orbit--large" /> <span>Строим план экскурсии, подождите...</span></div>}
+      </div>
+      <div className="map-toolbar">
+        <Button type="button" tone="primary" onClick={onBuildPlan} disabled={loading || selectedIds.length < 2}>
+          <Plus size={17} /> Построить план экскурсии
+        </Button>
+        {!editing ? (
+          <Button type="button" tone="neutral" onClick={startEditing} disabled={plannedLine.length < 2 || loading}>
+            <Pencil size={17} /> Редактировать линию
+          </Button>
+        ) : (
+          <>
+            <Button type="button" tone="primary" onClick={finishEditing}><Save size={17} /> Завершить редактирование</Button>
+            <Button type="button" tone="neutral" onClick={cancelEditing}><RotateCcw size={17} /> Отменить</Button>
+          </>
+        )}
+        <Button type="button" tone="neutral" onClick={onSaveGeometry} disabled={savingGeometry || !plannedLine.length || loading}>
+          <Save size={17} /> {savingGeometry ? "Сохраняем..." : "Сохранить изменения"}
+        </Button>
+        <Button type="button" tone="neutral" onClick={onResetGeometry} disabled={!builtGeometry || loading}>
+          <RotateCcw size={17} /> Отмена
+        </Button>
       </div>
       <aside className="route-builder__panel">
         <div className="route-builder__panel-head">
@@ -172,12 +172,10 @@ export function AdminRouteBuilderMap({
                 if (Number.isFinite(source)) onReorderPoint?.(source, index);
               }}
             >
-              <GripVertical size={16} aria-hidden />
               <span>{index + 1}</span>
               <img src={mediaUrl(mediaGallery(point)[0] || point.image_url || placeholderImage)} alt="" />
               <div className="selected-point-copy">
                 <strong>{point.name}</strong>
-                <small>{point.short_description || point.address || "Описание точки пока не заполнено"}</small>
               </div>
               <div className="selected-point-actions">
                 <button type="button" aria-label="Переместить выше" onClick={() => onMovePoint(index, -1)} disabled={index === 0}><ArrowUp size={15} /></button>
