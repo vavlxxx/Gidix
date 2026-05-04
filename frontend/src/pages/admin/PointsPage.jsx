@@ -114,22 +114,19 @@ export function PointsPage() {
         </div>
         <form className="point-editor panel stack" onSubmit={submit}>
           <h2>{editingId ? "Редактирование точки" : "Новая точка"}</h2>
-          <section className="point-editor__section">
-            <h3>Основные данные</h3>
-            <div className="form-grid">
-              <FormField label="Название" required><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></FormField>
+          <section className="point-editor__section point-editor__section--main">
+            <div className="point-editor__main-left">
+              <h3>Основные данные</h3>
+              <FormField label="Название точки" required><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></FormField>
+              <div className="form-grid">
+                <FormField label="Широта" required><input type="number" step="0.0000001" value={form.latitude} readOnly required /></FormField>
+                <FormField label="Долгота" required><input type="number" step="0.0000001" value={form.longitude} readOnly required /></FormField>
+              </div>
             </div>
-          </section>
-          <section className="point-editor__section">
-            <h3>Координаты</h3>
-            <div className="form-grid">
-              <FormField label="Широта" required><input type="number" step="0.0000001" value={form.latitude} readOnly required /></FormField>
-              <FormField label="Долгота" required><input type="number" step="0.0000001" value={form.longitude} readOnly required /></FormField>
+            <div className="point-editor__main-right">
+              <h3>Описание</h3>
+              <FormField label="Описание"><textarea value={form.description || ""} onChange={(event) => setForm({ ...form, description: event.target.value })} /></FormField>
             </div>
-          </section>
-          <section className="point-editor__section">
-            <h3>Описание</h3>
-            <FormField label="Описание"><textarea value={form.description || ""} onChange={(event) => setForm({ ...form, description: event.target.value })} /></FormField>
           </section>
           <section className="point-editor__section">
             <h3>Фотографии</h3>

@@ -57,7 +57,7 @@ export function CatalogPage() {
                 <p>{item.description || "Описание экскурсии пока не заполнено."}</p>
                 <div className="card-tags" aria-label="Параметры экскурсии">
                   <span><WalletCards size={15} /> {money(item.base_price)}</span>
-                  <span><Clock3 size={15} /> {minutes(item.duration_min || item.route?.estimated_duration_min)}</span>
+                  <span><Clock3 size={15} /> {minutes(item.route?.estimated_duration_min || item.duration_min)}</span>
                 </div>
                 <div className="next-date-label">
                   <CalendarDays size={15} />

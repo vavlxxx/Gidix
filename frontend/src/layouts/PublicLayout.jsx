@@ -59,7 +59,7 @@ export function PublicLayout() {
               <div className="sidebar-user-footer">
                 <span>{auth.user.full_name || auth.user.email}</span>
                 <small>{roleTitle(primaryRole)}</small>
-                <button className="button button--neutral" type="button" onClick={logout} title="Выйти"><LogOut size={17} /> <span style="color: #1a1a1a;">Выйти</span></button>
+                <button className="button button--neutral" type="button" onClick={logout} title="Выйти"><LogOut size={17} /> <span style={{ color: "#1a1a1a" }}>Выйти</span></button>
               </div>
             ) : (
               <Link className="button button--primary" to="/login"><LogIn size={17} /> <span>Войти</span></Link>

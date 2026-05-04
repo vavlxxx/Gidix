@@ -14,7 +14,7 @@ export function RoutesExplorerMap({ excursions, selectedId, hoveredPointId, onSe
             onClick={() => onSelect(item.id)}
           >
             <strong>{item.title}</strong>
-            <span>{item.route?.estimated_length_km || "—"} км · {item.duration_min || item.route?.estimated_duration_min || "—"} мин</span>
+            <span>{item.route?.estimated_length_km || "—"} км · {item.route?.estimated_duration_min || item.duration_min || "—"} мин</span>
           </button>
         ))}
       </div>

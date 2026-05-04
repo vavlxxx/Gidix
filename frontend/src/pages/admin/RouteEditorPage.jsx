@@ -255,6 +255,7 @@ export function RouteEditorPage({ mode = "create" }) {
           <div className="form-grid">
             <FormField label="Название маршрута" required><input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required /></FormField>
             <FormField label="Обложка маршрута"><input value={form.cover_image_url || ""} onChange={(event) => setForm({ ...form, cover_image_url: event.target.value })} placeholder="URL главной фотографии" /></FormField>
+            <FormField label="Длительность, минут"><input type="number" min="1" value={estimated.estimated_duration_min || ""} onChange={(event) => setEstimated((prev) => ({ ...prev, estimated_duration_min: event.target.value ? Number(event.target.value) : null }))} placeholder="Например: 120" /></FormField>
           </div>
           <FormField label="Описание"><textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Кратко опишите логику маршрута и ключевые темы экскурсии" /></FormField>
           <MediaGalleryManager

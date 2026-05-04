@@ -2515,6 +2515,66 @@ input[readonly] {
   padding: 0;
 }
 
+.point-editor {
+  align-items: stretch;
+}
+
+.point-editor > h2,
+.point-editor__section,
+.point-editor__section--actions,
+.point-editor > .actions-row {
+  grid-column: 1 / -1;
+}
+
+.point-editor__section--main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.point-editor__main-left,
+.point-editor__main-right {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.point-editor__main-right,
+.point-editor__main-right .form-field {
+  height: 100%;
+}
+
+.point-editor__main-right textarea {
+  height: 100%;
+  min-height: 100%;
+}
+
+.textarea-loading-wrap {
+  position: relative;
+  min-height: 110px;
+}
+
+.textarea-loading-wrap textarea {
+  min-height: 110px;
+}
+
+.textarea-loading-wrap .state--loading {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+  margin: 0;
+  background: #fff;
+  border-radius: 10px;
+}
+
+.detail-admin-edit {
+  margin-top: 18px;
+  width: max-content;
+  background: rgba(255,255,255,.9);
+  color: var(--green-dark);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hero-carousel-image,
   .map-popup__carousel img,
@@ -2571,6 +2631,16 @@ input[readonly] {
   .points-page--split .admin-map {
     min-height: 420px !important;
     height: 58vh;
+  }
+
+  .point-editor,
+  .point-editor__section--main {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+
+  .point-editor__section--main {
+    grid-template-columns: 1fr;
   }
 }
 

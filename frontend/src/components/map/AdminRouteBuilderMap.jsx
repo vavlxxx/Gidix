@@ -77,7 +77,7 @@ export function AdminRouteBuilderMap({
         <MapContainer center={center} zoom={12} scrollWheelZoom className="builder-map">
           <TileLayer attribution={tileAttribution} url={tileUrl} />
           <FitBoundsOnce positions={plannedLine.length ? plannedLine : selectedPositions.length ? selectedPositions : allPositions} />
-          {!plannedLine.length && (
+          {!plannedLine.length && !needsRebuild && (
             <div className="map-empty-note map-empty-note--builder">
               <strong>Маршрут ещё не построен</strong>
               <span>Выберите точки и постройте план экскурсии.</span>

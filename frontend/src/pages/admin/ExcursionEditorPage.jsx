@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Sparkles } from "lucide-react";
+import { ArrowLeft, Eye, Save, Sparkles, Trash2 } from "lucide-react";
 import { adminApi, excursionsApi, mediaUrl } from "../../api/client";
 import { Button } from "../../components/ui/Button";
 import { FormField } from "../../components/ui/FormField";
@@ -66,6 +66,7 @@ export function ExcursionEditorPage() {
   }, [id]);
 
   const selectedRoute = state.routes.find((route) => String(route.id) === String(form.route_id));
+  const routeDuration = selectedRoute?.estimated_duration_min || null;
   const previewImages = form.media_urls?.length ? form.media_urls : [form.image_url].filter(Boolean);
   const cover = form.image_url || previewImages[0] || coverForExcursion({ ...form, route: selectedRoute });
 
@@ -101,8 +102,8 @@ export function ExcursionEditorPage() {
         description: form.description,
         route_id: form.route_id ? Number(form.route_id) : null,
         base_price: String(form.base_price || 0),
-        duration_min: form.duration_min ? Number(form.duration_min) : null,
-        meeting_point: form.meeting_point,
+        duration_min: routeDuration,
+        meeting_point: null,
         max_participants: Number(form.max_participants || 1),
         image_url: form.image_url || gallery[0] || null,
         media_urls: gallery,
@@ -118,6 +119,20 @@ export function ExcursionEditorPage() {
     }
   }
 
+  async function remove() {
+    if (!id || !confirm("Удалить экскурсию?")) return;
+    setSaving(true);
+    try {
+      await adminApi.deleteExcursion(id);
+      notify.success("Экскурсия удалена.");
+      navigate("/", { replace: true });
+    } catch (err) {
+      notify.error(err.message || "Не удалось удалить экскурсию.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading || listsLoading) return <LoadingState text="Загрузка редактора экскурсии" />;
   if (error) return <ErrorState text={error} />;
 
@@ -127,7 +142,12 @@ export function ExcursionEditorPage() {
         eyebrow="Экскурсии"
         title={id ? "Редактирование экскурсии" : "Новая экскурсия"}
         description="Отдельная страница для программы, маршрута, расписания, цены и клиентского описания."
-        actions={<Button as="link" to="/" tone="neutral"><ArrowLeft size={17} /> К каталогу</Button>}
+        actions={
+          <>
+            <Button as="link" to="/" tone="neutral"><ArrowLeft size={17} /> К каталогу</Button>
+            {id && <Button as="link" to={`/excursions/${id}`} tone="neutral"><Eye size={17} /> Просмотр</Button>}
+          </>
+        }
       />
 
       <section className="editor-layout">
@@ -137,21 +157,22 @@ export function ExcursionEditorPage() {
             <FormField label="Маршрут"><select value={form.route_id} onChange={(event) => setForm({ ...form, route_id: event.target.value })}><option value="">Маршрут пока не выбран</option>{state.routes.map((route) => <option key={route.id} value={route.id}>{route.title}</option>)}</select></FormField>
           </div>
           <FormField label="Описание для клиента">
-            <textarea value={form.description || ""} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Расскажите, что увидит турист и почему программа интересна." />
+            <div className="textarea-loading-wrap">
+              <textarea value={form.description || ""} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Расскажите, что увидит турист и почему программа интересна." disabled={generating} />
+              {generating && <LoadingState text="Описание готовится" />}
+            </div>
           </FormField>
           <div className="actions-row">
             <Button type="button" tone="neutral" onClick={generateDescription} disabled={generating}><Sparkles size={17} /> {generating ? "Генерируем..." : "Сгенерировать описание"}</Button>
           </div>
-          {generating && <LoadingState text="Описание готовится" />}
           <div className="form-grid">
-            <FormField label="Цена, ₽" required><input type="number" min="0" value={form.base_price} onChange={(event) => setForm({ ...form, base_price: event.target.value })} required /></FormField>
-            <FormField label="Длительность, минут"><input type="number" min="1" value={form.duration_min || ""} onChange={(event) => setForm({ ...form, duration_min: event.target.value })} /></FormField>
+            <FormField label="Цена ₽/чел" required><input type="number" min="0" value={form.base_price} onChange={(event) => setForm({ ...form, base_price: event.target.value })} required /></FormField>
+            <FormField label="Длительность из маршрута"><input type="text" value={routeDuration ? `${routeDuration} мин` : "Выберите маршрут"} readOnly /></FormField>
             <FormField label="Максимум участников"><input type="number" min="1" max="200" value={form.max_participants} onChange={(event) => setForm({ ...form, max_participants: event.target.value })} /></FormField>
             <FormField label="Публикация">
               <label className="switch-line"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} /> <span>Показывать экскурсию в каталоге</span></label>
             </FormField>
           </div>
-          <FormField label="Место встречи"><input value={form.meeting_point || ""} onChange={(event) => setForm({ ...form, meeting_point: event.target.value })} placeholder="Например: у главного входа в музей" /></FormField>
           <MediaGalleryManager
             label="Фотографии экскурсии"
             values={form.media_urls || []}
@@ -163,6 +184,8 @@ export function ExcursionEditorPage() {
           <div className="actions-row">
             <Button type="submit" tone="primary" disabled={saving}><Save size={17} /> {saving ? "Сохраняем..." : "Сохранить экскурсию"}</Button>
             <Button as="link" to="/admin/sessions" tone="neutral">Перейти к расписанию</Button>
+            {id && <Button as="link" to={`/excursions/${id}`} tone="neutral"><Eye size={17} /> Просмотр</Button>}
+            {id && <Button type="button" tone="danger" onClick={remove} disabled={saving}><Trash2 size={17} /> Удалить</Button>}
           </div>
         </form>
 
@@ -172,7 +195,7 @@ export function ExcursionEditorPage() {
           <p>{form.description || "Описание появится в карточке экскурсии после заполнения."}</p>
           <div className="detail-badges">
             <span>{form.base_price || 0} ₽</span>
-            <span>{form.duration_min || selectedRoute?.estimated_duration_min || 0} мин</span>
+            <span>{routeDuration || 0} мин</span>
             <span>{selectedRoute?.title || "Маршрут не выбран"}</span>
           </div>
           {selectedRoute ? (

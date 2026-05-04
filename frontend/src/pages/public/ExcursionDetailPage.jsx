@@ -1,6 +1,6 @@
 import React from "react";
 import { useParams } from "react-router-dom";
-import { CalendarCheck, CheckCircle2, ChevronLeft, ChevronRight, Clock3, WalletCards } from "lucide-react";
+import { CalendarCheck, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Pencil, WalletCards } from "lucide-react";
 import { adminApi, bookingsApi, excursionsApi, mediaUrl } from "../../api/client";
 import { RouteMap, MapLegend } from "../../components/map/RouteMap";
 import { Button } from "../../components/ui/Button";
@@ -8,13 +8,15 @@ import { FormField } from "../../components/ui/FormField";
 import { MasonryGallery } from "../../components/ui/MasonryGallery";
 import { EmptyState, ErrorState, LoadingState, SuccessState } from "../../components/ui/State";
 import { useToast } from "../../context/ToastContext";
-import { availablePlacesTotal, cleanPayload, formatDate, formatTime, mediaGallery, minutes, money, placeholderImage, sortedRoutePoints } from "../../utils/format";
+import { useAuth } from "../../context/AuthContext";
+import { cleanPayload, formatDate, formatTime, mediaGallery, minutes, money, placeholderImage, sortedRoutePoints, userHasRole } from "../../utils/format";
 
 const emptyForm = { session_id: "", participants_count: 1, customer_name: "", customer_phone: "", customer_email: "", comment: "" };
 
 export function ExcursionDetailPage() {
   const { id } = useParams();
   const notify = useToast();
+  const auth = useAuth();
   const [item, setItem] = React.useState(null);
   const [sessions, setSessions] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -48,6 +50,8 @@ export function ExcursionDetailPage() {
   const times = selectedDate ? sessions.filter((session) => session.session_date === selectedDate) : [];
   const routePoints = sortedRoutePoints(item?.route);
   const nearest = sessions[0];
+  const canEdit = userHasRole(auth?.user, ["admin", "superuser", "manager"]);
+  const selectedAvailability = selectedSession ? (selectedSession.available_places ?? selectedSession.capacity ?? 0) : null;
   const heroImages = React.useMemo(() => {
     const images = [...mediaGallery(item), ...(routePoints || []).flatMap((link) => mediaGallery(link.point))].filter(Boolean);
     return images.length ? images : [placeholderImage];
@@ -92,9 +96,10 @@ export function ExcursionDetailPage() {
           <p>{item.description || item.route?.description || "Описание экскурсии будет уточнено менеджером."}</p>
           <div className="detail-badges" aria-label="Краткая информация об экскурсии">
             <span><WalletCards size={17} /> {money(item.base_price)}</span>
-            <span><Clock3 size={17} /> {minutes(item.duration_min || item.route?.estimated_duration_min)}</span>
+            <span><Clock3 size={17} /> {minutes(item.route?.estimated_duration_min || item.duration_min)}</span>
             <span><CalendarCheck size={17} /> {nearest ? formatDate(nearest.session_date, { day: "2-digit", month: "short" }) : "дат пока нет"}</span>
           </div>
+          {canEdit && <Button as="link" to={`/admin/excursions/${item.id}/edit`} tone="neutral" className="detail-admin-edit"><Pencil size={17} /> Редактировать</Button>}
         </div>
       </section>
 
@@ -185,15 +190,15 @@ export function ExcursionDetailPage() {
                 <FormField label="Телефон"><input value={form.customer_phone} placeholder="+7..." onChange={(event) => setForm({ ...form, customer_phone: event.target.value })} /></FormField>
                 <FormField label="Email"><input type="email" value={form.customer_email} placeholder="name@example.ru" onChange={(event) => setForm({ ...form, customer_email: event.target.value })} /></FormField>
                 <FormField label="Количество участников" required>
-                  <input type="number" min="1" max={selectedSession?.available_places || item.max_participants} value={form.participants_count} onChange={(event) => setForm({ ...form, participants_count: event.target.value })} required />
+                  <input type="number" min="1" max={selectedAvailability ?? 1} value={form.participants_count} onChange={(event) => setForm({ ...form, participants_count: event.target.value })} required disabled={!selectedSession || selectedAvailability < 1} />
                 </FormField>
               </div>
               <FormField label="Сообщение или комментарий"><textarea value={form.comment} onChange={(event) => setForm({ ...form, comment: event.target.value })} /></FormField>
             </div>
             <div className="booking-submit">
               <strong><CheckCircle2 size={18} /> Подтверждение</strong>
-              <p>Свободных мест по выбранной дате: {selectedSession?.available_places ?? availablePlacesTotal(sessions, item.max_participants)}</p>
-              <Button type="submit" tone="primary" disabled={!form.session_id || !form.customer_name || submitting}>{submitting ? "Отправляем..." : "Отправить заявку"}</Button>
+              <p>{selectedSession ? `Свободных мест по выбранной дате: ${selectedAvailability}` : "Выберите доступную дату и время, чтобы увидеть свободные места."}</p>
+              <Button type="submit" tone="primary" disabled={!form.session_id || !form.customer_name || selectedAvailability < 1 || submitting}>{submitting ? "Отправляем..." : "Отправить заявку"}</Button>
             </div>
           </form>
         )}
