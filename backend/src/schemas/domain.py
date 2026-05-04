@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Any
 
@@ -323,6 +323,8 @@ class ReviewRead(ReviewCreate):
     id: int
     user_id: int | None = None
     published: bool
+    excursion_title: str | None = None
+    created_at: datetime | None = None
 
 
 class GeneratedDescriptionRead(BaseDTO):

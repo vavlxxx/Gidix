@@ -137,6 +137,7 @@ export const authApi = {
   register: (data) => api("/auth/register", { method: "POST", body: JSON.stringify(data) }),
   refresh: () => api("/auth/refresh", { method: "POST" }, false),
   profile: () => api("/auth/profile"),
+  updateProfile: (data) => api("/auth/profile", { method: "PUT", body: JSON.stringify(data) }),
   logout: () => api("/auth/logout", { method: "POST" })
 };
 
@@ -151,10 +152,22 @@ export const excursionsApi = {
 
 export const bookingsApi = {
   create: (data) => api("/bookings", { method: "POST", body: JSON.stringify(data) }),
+  createMine: (data) => api("/bookings/me", { method: "POST", body: JSON.stringify(data) }),
+  mine: () => api("/bookings/me"),
   list: () => api("/bookings"),
   updateStatus: (id, data) => api(`/bookings/${id}/status`, { method: "PUT", body: JSON.stringify(data) }),
   delete: (id) => api(`/bookings/${id}`, { method: "DELETE" }),
   pay: (id) => api(`/bookings/${id}/mock-payment`, { method: "POST" })
+};
+
+export const reviewsApi = {
+  list: (excursionId) => api(`/reviews${excursionId ? `?excursion_id=${excursionId}` : ""}`),
+  moderation: () => api("/reviews/moderation"),
+  mine: () => api("/reviews/me"),
+  create: (data) => api("/reviews", { method: "POST", body: JSON.stringify(data) }),
+  publish: (id) => api(`/reviews/${id}/publish`, { method: "POST" }),
+  unpublish: (id) => api(`/reviews/${id}/unpublish`, { method: "POST" }),
+  delete: (id) => api(`/reviews/${id}`, { method: "DELETE" })
 };
 
 export const adminApi = {

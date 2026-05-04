@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -31,7 +33,7 @@ async def list_public_excursion_sessions(db: DBDep, excursion_id: int) -> list[G
     result = await db.session.execute(
         select(GuideSession)
         .options(selectinload(GuideSession.bookings))
-        .where(GuideSession.excursion_id == excursion_id, GuideSession.status.in_(["scheduled", "active"]))
+        .where(GuideSession.excursion_id == excursion_id, GuideSession.session_date >= date.today(), GuideSession.status.in_(["scheduled", "active"]))
         .order_by(GuideSession.session_date, GuideSession.start_time)
     )
     sessions = list(result.scalars().all())
@@ -42,6 +44,8 @@ async def list_public_excursion_sessions(db: DBDep, excursion_id: int) -> list[G
 
 @router.post("/sessions", response_model=GuideSessionRead, dependencies=[guide_dep])
 async def create_session(db: DBDep, data: GuideSessionCreate) -> GuideSession:
+    if data.session_date < date.today():
+        raise HTTPException(status_code=400, detail="Session date is in the past")
     await _ensure_unique_session(db, data.excursion_id, data.session_date, data.start_time)
     session = GuideSession(**data.model_dump())
     db.session.add(session)
@@ -71,6 +75,8 @@ async def update_session(db: DBDep, session_id: int, data: GuideSessionUpdate) -
     next_excursion_id = data.excursion_id if data.excursion_id is not None else session.excursion_id
     next_date = data.session_date if data.session_date is not None else session.session_date
     next_time = data.start_time if data.start_time is not None else session.start_time
+    if data.session_date is not None and next_date < date.today():
+        raise HTTPException(status_code=400, detail="Session date is in the past")
     await _ensure_unique_session(db, next_excursion_id, next_date, next_time, exclude_id=session_id)
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(session, key, value)

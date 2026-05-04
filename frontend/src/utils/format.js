@@ -39,6 +39,28 @@ export function routeLine(route) {
   return { positions: geoJsonToLeafletLatLngs(route?.geometry_geojson), source: "geojson" };
 }
 
+export function yandexRouteUrl(route) {
+  const customUrl = String(route?.route_metadata?.yandex_maps_url || "").trim();
+  if (customUrl) return customUrl;
+  const routePoints = sortedRoutePoints(route)
+    .map((link) => link.point)
+    .filter((point) => Number.isFinite(Number(point?.latitude)) && Number.isFinite(Number(point?.longitude)))
+    .map((point) => ({ latitude: Number(point.latitude), longitude: Number(point.longitude) }));
+  const points = routePoints;
+  if (points.length < 2) return "";
+  const rtext = points.map((point) => `${point.latitude.toFixed(6)},${point.longitude.toFixed(6)}`).join("~");
+  const centerLat = points.reduce((sum, point) => sum + point.latitude, 0) / points.length;
+  const centerLon = points.reduce((sum, point) => sum + point.longitude, 0) / points.length;
+  const params = new URLSearchParams({
+    ll: `${centerLon.toFixed(6)},${centerLat.toFixed(6)}`,
+    mode: "routes",
+    rtext,
+    rtt: "pd",
+    z: "14"
+  });
+  return `https://yandex.ru/maps/?${params.toString()}`;
+}
+
 export function mediaGallery(entity) {
   const raw = [
     ...(Array.isArray(entity?.media_urls) ? entity.media_urls : []),
@@ -96,6 +118,7 @@ export function paymentTitle(status) {
 
 export function roleTitle(role) {
   return ({
+    client: "Клиент",
     admin: "Администратор",
     superuser: "Администратор",
     manager: "Менеджер",

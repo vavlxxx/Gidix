@@ -47,11 +47,18 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  async function updateProfile(data) {
+    const profile = await authApi.updateProfile(data);
+    setUser(profile);
+    return profile;
+  }
+
   const value = React.useMemo(() => ({
     user,
     ready,
     login,
     register,
+    updateProfile,
     logout,
     isStaff: userHasRole(user, ["admin", "superuser", "manager", "dispatcher", "guide", "accountant", "it_specialist"])
   }), [user, ready]);

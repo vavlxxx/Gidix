@@ -19,10 +19,11 @@ services:
       POSTGRES_HOST: postgres
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-gidix}:${POSTGRES_PASSWORD:-gidix_password}@postgres:5432/${POSTGRES_DB:-gidix}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      MEDIA_DIR: /app/uploads
     ports:
       - "${API_PORT:-8000}:8000"
     volumes:
-      - backend_media:/app/media
+      - ./backend/uploads:/app/uploads
       - backend_logs:/app/logs
     depends_on:
       postgres:
@@ -54,5 +55,4 @@ services:
 
 volumes:
   postgres_data:
-  backend_media:
   backend_logs:

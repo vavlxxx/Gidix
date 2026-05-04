@@ -6,6 +6,8 @@ services:
       context: .
     env_file:
       - ".env.docker"
+    environment:
+      MEDIA_DIR: /app/uploads
     ports:
       - 8888:8888
     networks:
@@ -15,6 +17,7 @@ services:
     command: "poetry run python ./src/gunicorn/run.py"
     volumes:
       - ./logs:/app/logs
+      - ./uploads:/app/uploads
 
     develop:
       watch:

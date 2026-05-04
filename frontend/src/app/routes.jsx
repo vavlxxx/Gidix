@@ -3,6 +3,7 @@ import { PublicLayout } from "../layouts/PublicLayout";
 import { AdminLayout } from "../layouts/AdminLayout";
 import { CatalogPage } from "../pages/public/CatalogPage";
 import { ExcursionDetailPage } from "../pages/public/ExcursionDetailPage";
+import { ProfilePage } from "../pages/public/ProfilePage";
 import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
 import { AdminDashboardPage } from "../pages/admin/AdminDashboardPage";
@@ -12,7 +13,7 @@ import { ExcursionEditorPage } from "../pages/admin/ExcursionEditorPage";
 import { RoutesPage } from "../pages/admin/RoutesPage";
 import { RouteEditorPage } from "../pages/admin/RouteEditorPage";
 import { PointsPage } from "../pages/admin/PointsPage";
-import { PlaceholderAdminPage } from "../pages/admin/PlaceholderAdminPage";
+import { ReviewsPage } from "../pages/admin/ReviewsPage";
 
 export const router = createBrowserRouter([
   {
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { path: "/dates", element: <Navigate to="/" replace /> },
       { path: "/how-it-works", element: <Navigate to="/" replace /> },
       { path: "/excursions/:id", element: <ExcursionDetailPage /> },
+      { path: "/profile", element: <ProfilePage /> },
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
       {
@@ -41,7 +43,7 @@ export const router = createBrowserRouter([
           { path: "routes/new", element: <RouteEditorPage mode="create" /> },
           { path: "routes/:id/edit", element: <RouteEditorPage mode="edit" /> },
           { path: "points", element: <PointsPage /> },
-          { path: "reviews", element: <PlaceholderAdminPage title="Отзывы" description="Публикация и модерация отзывов после проведения экскурсий." /> },
+          { path: "reviews", element: <ReviewsPage /> },
           { path: "integrations", element: <Navigate to="/admin/routes" replace /> },
           { path: "settings", element: <Navigate to="/admin" replace /> }
         ]

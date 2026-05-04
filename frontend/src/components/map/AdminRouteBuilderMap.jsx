@@ -150,9 +150,6 @@ export function AdminRouteBuilderMap({
         <Button type="button" tone="neutral" onClick={onSaveGeometry} disabled={savingGeometry || !plannedLine.length || loading}>
           <Save size={17} /> {savingGeometry ? "Сохраняем..." : "Сохранить изменения"}
         </Button>
-        <Button type="button" tone="neutral" onClick={onResetGeometry} disabled={!builtGeometry || loading}>
-          <RotateCcw size={17} /> Отмена
-        </Button>
       </div>
       <aside className="route-builder__panel">
         <div className="route-builder__panel-head">

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import select
 
-from src.models.domain import Booking, Excursion
+from src.models.domain import Booking, Excursion, GuideSession
 from src.schemas.domain import BookingCreate
 from src.utils.db_tools import DBManager
 
@@ -18,6 +19,12 @@ class BookingService:
         if data.excursion_id:
             result = await self.db.session.execute(select(Excursion).where(Excursion.id == data.excursion_id))
             excursion = result.scalar_one_or_none()
+        if data.session_id:
+            session = await self.db.session.get(GuideSession, data.session_id)
+            if session is None:
+                raise ValueError("Session not found")
+            if session.session_date < date.today():
+                raise ValueError("Session date is in the past")
         base_price = excursion.base_price if excursion else Decimal("0.00")
         booking = Booking(
             client_id=client_id,

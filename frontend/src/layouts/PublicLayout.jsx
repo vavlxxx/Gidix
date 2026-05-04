@@ -7,6 +7,7 @@ import { roleTitle, userHasRole } from "../utils/format";
 
 const publicItems = [
   { to: "/", label: "Экскурсии", icon: Compass, end: true }
+  , { to: "/profile", label: "Профиль", icon: UserRound, auth: true }
 ];
 
 const staffItems = [
@@ -50,7 +51,7 @@ export function PublicLayout() {
           <span>GIDIX</span>
         </Link>
         <nav className="sidebar-nav">
-          {publicItems.map((item) => <NavItem key={item.to} item={item} />)}
+          {publicItems.filter((item) => !item.auth || auth.user).map((item) => <NavItem key={item.to} item={item} />)}
           {visibleStaffItems.map((item) => <NavItem key={item.to} item={item} />)}
           {/* {auth.user && <NavLink to="/" title="Профиль"><UserRound size={19} /><span className="nav-label">Профиль</span></NavLink>} */}
         </nav>

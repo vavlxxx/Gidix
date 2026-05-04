@@ -16,7 +16,10 @@ staff_dep = Depends(require_any_role("dispatcher", "manager", "accountant", "adm
 
 @router.post("", response_model=BookingRead)
 async def create_booking(db: DBDep, data: BookingCreate) -> Booking:
-    return await BookingService(db).create_booking(data)
+    try:
+        return await BookingService(db).create_booking(data)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("", response_model=list[BookingRead], dependencies=[staff_dep])
@@ -32,6 +35,36 @@ async def list_bookings(db: DBDep, offset: int = 0, limit: int = 100) -> list[Bo
     for booking in bookings:
         _attach_booking_view_fields(booking)
     return bookings
+
+
+@router.get("/me", response_model=list[BookingRead])
+async def list_my_bookings(db: DBDep, user: CurrentUser) -> list[Booking]:
+    result = await db.session.execute(
+        select(Booking)
+        .options(selectinload(Booking.session), selectinload(Booking.excursion))
+        .where(Booking.client_id == user.id)
+        .order_by(Booking.id.desc())
+    )
+    bookings = list(result.scalars().all())
+    for booking in bookings:
+        _attach_booking_view_fields(booking)
+    return bookings
+
+
+@router.post("/me", response_model=BookingRead)
+async def create_my_booking(db: DBDep, user: CurrentUser, data: BookingCreate) -> Booking:
+    try:
+        booking = await BookingService(db).create_booking(data, client_id=user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result = await db.session.execute(
+        select(Booking)
+        .options(selectinload(Booking.session), selectinload(Booking.excursion))
+        .where(Booking.id == booking.id)
+    )
+    booking = result.scalar_one()
+    _attach_booking_view_fields(booking)
+    return booking
 
 
 @router.get("/{booking_id}", response_model=BookingRead, dependencies=[staff_dep])
@@ -83,11 +116,6 @@ async def mock_payment(db: DBDep, booking_id: int) -> Booking:
         return await BookingService(db).confirm_mock_payment(booking_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.post("/me", response_model=BookingRead)
-async def create_my_booking(db: DBDep, user: CurrentUser, data: BookingCreate) -> Booking:
-    return await BookingService(db).create_booking(data, client_id=user.id)
 
 
 def _attach_booking_view_fields(booking: Booking) -> None:

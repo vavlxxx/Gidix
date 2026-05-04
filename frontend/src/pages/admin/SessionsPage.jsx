@@ -37,6 +37,10 @@ export function SessionsPage() {
 
   async function submit(event) {
     event.preventDefault();
+    if (form.session_date < isoDate(new Date())) {
+      notify.warning("Нельзя создать сеанс на прошедшую дату.");
+      return;
+    }
     if (hasDuplicate()) {
       notify.warning("На это время для выбранной экскурсии уже есть сеанс.");
       return;
@@ -91,8 +95,9 @@ export function SessionsPage() {
               const date = isoDate(day);
               const sessions = state.sessions.filter((session) => session.session_date === date);
               const outside = day.getMonth() !== month.getMonth();
+              const isPast = date < isoDate(new Date());
               return (
-                <button type="button" key={date} className={`${date === form.session_date ? "is-active" : ""} ${outside ? "is-muted" : ""}`} onClick={() => setForm({ ...form, session_date: date })}>
+                <button type="button" key={date} disabled={isPast} className={`${date === form.session_date ? "is-active" : ""} ${outside ? "is-muted" : ""}`} onClick={() => setForm({ ...form, session_date: date })}>
                   <strong>{day.getDate()}</strong>
                   {!!sessions.length && <span>{sessions.length} сеанс.</span>}
                 </button>
@@ -103,7 +108,7 @@ export function SessionsPage() {
         <form className="panel stack session-editor" onSubmit={submit}>
           <h2>{editingId ? "Редактирование сеанса" : "Новый сеанс"}</h2>
           <FormField label="Экскурсия" required><select value={form.excursion_id} onChange={(event) => setForm({ ...form, excursion_id: event.target.value })} required><option value="">Выберите экскурсию</option>{state.excursions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></FormField>
-          <div className="form-grid"><FormField label="Дата" required><input type="date" value={form.session_date} onChange={(event) => setForm({ ...form, session_date: event.target.value })} required /></FormField><FormField label="Время" required><input type="time" value={form.start_time} onChange={(event) => setForm({ ...form, start_time: event.target.value })} required /></FormField></div>
+          <div className="form-grid"><FormField label="Дата" required><input type="date" min={isoDate(new Date())} value={form.session_date} onChange={(event) => setForm({ ...form, session_date: event.target.value })} required /></FormField><FormField label="Время" required><input type="time" value={form.start_time} onChange={(event) => setForm({ ...form, start_time: event.target.value })} required /></FormField></div>
           <FormField label="Количество мест"><input type="number" min="1" value={form.capacity} onChange={(event) => setForm({ ...form, capacity: event.target.value })} /></FormField>
           <FormField label="Статус"><select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}><option value="scheduled">Запланирован</option><option value="active">Активен</option><option value="completed">Проведён</option><option value="cancelled">Отменён</option></select></FormField>
           <Button type="submit" tone="primary"><Save size={17} /> Сохранить сеанс</Button>
