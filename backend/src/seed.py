@@ -7,13 +7,12 @@ from decimal import Decimal
 from sqlalchemy import select
 
 from src.db import sessionmaker
+from src.extra.osrm_points import points as OSRM_POINTS
 from src.models.auth import Role, User, UserRole
 from src.models.domain import Excursion, GuideSession, PointCategory, PointOfInterest, Route, RoutePoint
 from src.schemas.auth import RoleName
 from src.services.auth import TokenService, ensure_roles
 from src.utils.db_tools import DBManager
-from src.extra.osrm_points import points as OSRM_POINTS
-
 
 USERS = [
     ("admin@example.com", "admin123", "admin"),
@@ -38,7 +37,7 @@ async def main() -> None:
     async with DBManager(sessionmaker) as db:
         await ensure_roles(db)
         await seed_users(db)
-        await seed_points_and_excursion(db)
+        # await seed_points_and_excursion(db)
 
 
 async def seed_users(db: DBManager) -> None:

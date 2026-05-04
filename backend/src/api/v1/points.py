@@ -9,7 +9,7 @@ from src.models.domain import PointCategory, PointOfInterest
 from src.schemas.domain import PointCategoryCreate, PointCategoryRead, PointCreate, PointRead, PointUpdate
 
 router = APIRouter(prefix="/points", tags=["points"])
-admin_dep = Depends(require_any_role("manager", "admin", "superuser"))
+admin_dep = Depends(require_any_role("it_specialist", "manager", "admin", "superuser"))
 
 
 @router.get("/categories", response_model=list[PointCategoryRead])

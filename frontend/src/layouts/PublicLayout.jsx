@@ -52,15 +52,14 @@ export function PublicLayout() {
         <nav className="sidebar-nav">
           {publicItems.map((item) => <NavItem key={item.to} item={item} />)}
           {visibleStaffItems.map((item) => <NavItem key={item.to} item={item} />)}
-          {!auth.user && <NavLink to="/login" title="Войти"><LogIn size={19} /><span className="nav-label">Войти</span></NavLink>}
-          {auth.user && <NavLink to="/" title="Профиль"><UserRound size={19} /><span className="nav-label">Профиль</span></NavLink>}
+          {/* {auth.user && <NavLink to="/" title="Профиль"><UserRound size={19} /><span className="nav-label">Профиль</span></NavLink>} */}
         </nav>
         <div className="sidebar-footer">
             {auth.user ? (
               <div className="sidebar-user-footer">
                 <span>{auth.user.full_name || auth.user.email}</span>
                 <small>{roleTitle(primaryRole)}</small>
-                <button className="button button--neutral" type="button" onClick={logout} title="Выйти"><LogOut size={17} /> <span>Выйти</span></button>
+                <button className="button button--neutral" type="button" onClick={logout} title="Выйти"><LogOut size={17} /> <span style="color: #1a1a1a;">Выйти</span></button>
               </div>
             ) : (
               <Link className="button button--primary" to="/login"><LogIn size={17} /> <span>Войти</span></Link>

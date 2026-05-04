@@ -12,7 +12,7 @@ import { useToast } from "../../context/ToastContext";
 import { cleanPayload, mediaGallery, placeholderImage } from "../../utils/format";
 import { createPoiMarkerIcon, pointIcon, pointPosition, tileAttribution, tileUrl } from "../../utils/map";
 
-const empty = { name: "", short_description: "", full_description: "", address: "", latitude: "", longitude: "", visit_duration_min: 20, image_url: "", media_urls: [] };
+const empty = { name: "", description: "", latitude: "", longitude: "", image_url: "", media_urls: [], active: true };
 
 export function PointsPage() {
   const notify = useToast();
@@ -23,9 +23,20 @@ export function PointsPage() {
     ? [Number(form.latitude), Number(form.longitude)]
     : null;
 
+  function pointForm(point, coordinates = {}) {
+    return {
+      ...empty,
+      ...point,
+      description: point.full_description || point.short_description || "",
+      latitude: coordinates.latitude ?? String(point.latitude),
+      longitude: coordinates.longitude ?? String(point.longitude),
+      media_urls: mediaGallery(point)
+    };
+  }
+
   function edit(point) {
     setEditingId(point.id);
-    setForm({ ...empty, ...point, latitude: String(point.latitude), longitude: String(point.longitude), media_urls: mediaGallery(point) });
+    setForm(pointForm(point));
   }
 
   async function upload(file) {
@@ -36,17 +47,23 @@ export function PointsPage() {
     event.preventDefault();
     try {
       const media = form.media_urls || [];
+      const description = String(form.description || "").trim();
+      const latitude = Number(form.latitude);
+      const longitude = Number(form.longitude);
+      if (!form.latitude || !form.longitude || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        notify.error("Выберите точку на карте.");
+        return;
+      }
       const payload = cleanPayload({
-        ...form,
-        address: form.address || null,
-        short_description: form.short_description || (form.full_description ? form.full_description.slice(0, 480) : null),
+        name: form.name,
+        full_description: description || null,
+        short_description: description ? description.slice(0, 500) : null,
         image_url: form.image_url || media[0] || null,
         extra: { ...(form.extra || {}), media_urls: media },
-        latitude: Number(form.latitude),
-        longitude: Number(form.longitude),
-        visit_duration_min: Number(form.visit_duration_min)
+        latitude,
+        longitude,
+        active: form.active !== false
       });
-      delete payload.media_urls;
       if (editingId) await adminApi.updatePoint(editingId, payload);
       else await adminApi.createPoint(payload);
       notify.success(editingId ? "Точка обновлена." : "Точка создана.");
@@ -86,7 +103,7 @@ export function PointsPage() {
               onEdit={edit}
               onMove={(point, latlng) => {
                 setEditingId(point.id);
-                setForm({ ...empty, ...point, latitude: latlng.lat.toFixed(7), longitude: latlng.lng.toFixed(7), media_urls: mediaGallery(point) });
+                setForm(pointForm(point, { latitude: latlng.lat.toFixed(7), longitude: latlng.lng.toFixed(7) }));
               }}
               onCreate={(latlng) => {
                 setEditingId(null);
@@ -101,21 +118,18 @@ export function PointsPage() {
             <h3>Основные данные</h3>
             <div className="form-grid">
               <FormField label="Название" required><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></FormField>
-              <FormField label="Время посещения, мин"><input type="number" min="1" value={form.visit_duration_min} onChange={(event) => setForm({ ...form, visit_duration_min: event.target.value })} /></FormField>
             </div>
           </section>
           <section className="point-editor__section">
-            <h3>Координаты и адрес</h3>
+            <h3>Координаты</h3>
             <div className="form-grid">
               <FormField label="Широта" required><input type="number" step="0.0000001" value={form.latitude} readOnly required /></FormField>
               <FormField label="Долгота" required><input type="number" step="0.0000001" value={form.longitude} readOnly required /></FormField>
             </div>
-            <FormField label="Адрес"><input value={form.address || ""} onChange={(event) => setForm({ ...form, address: event.target.value })} /></FormField>
           </section>
           <section className="point-editor__section">
             <h3>Описание</h3>
-            <FormField label="Краткое описание"><input value={form.short_description || ""} maxLength={500} onChange={(event) => setForm({ ...form, short_description: event.target.value })} /></FormField>
-            <FormField label="Полное описание"><textarea value={form.full_description || ""} onChange={(event) => setForm({ ...form, full_description: event.target.value })} /></FormField>
+            <FormField label="Описание"><textarea value={form.description || ""} onChange={(event) => setForm({ ...form, description: event.target.value })} /></FormField>
           </section>
           <section className="point-editor__section">
             <h3>Фотографии</h3>
@@ -171,9 +185,7 @@ function PointsLayer({ points, editingId, draftPosition, onEdit, onCreate, onMov
           <article className="map-popup">
             <PointPopupCarousel images={mediaGallery(point).length ? mediaGallery(point) : [point.image_url || placeholderImage]} />
             <strong>{point.name}</strong>
-            <p>{point.short_description || point.address || "Точка интереса"}</p>
-            {point.address && <small>{point.address}</small>}
-            <small>Время посещения: {point.visit_duration_min || 15} мин</small>
+            <p>{point.full_description || point.short_description || "Точка интереса"}</p>
             <button type="button" onClick={() => onEdit(point)}>Редактировать</button>
           </article>
         </Popup>

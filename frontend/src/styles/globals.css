@@ -811,6 +811,10 @@ dd { margin: 4px 0 0; font-weight: 900; }
   padding-inline: 0;
 }
 
+.site-with-sidebar.is-collapsed .sidebar-footer .button {
+  width: 100%;
+}
+
 .admin-shell { grid-template-columns: minmax(0, 1fr) 270px; }
 .admin-shell.is-collapsed { grid-template-columns: minmax(0, 1fr) 76px; }
 .admin-sidebar { grid-template-rows: auto auto auto 1fr auto; }

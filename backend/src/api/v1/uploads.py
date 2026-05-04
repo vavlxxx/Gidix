@@ -11,7 +11,7 @@ from src.api.v1.dependencies.db import DBDep
 from src.config import settings
 from src.models.domain import MediaAsset
 
-router = APIRouter(prefix="/uploads", tags=["uploads"], dependencies=[Depends(require_any_role("manager", "admin", "superuser"))])
+router = APIRouter(prefix="/uploads", tags=["uploads"], dependencies=[Depends(require_any_role("it_specialist", "manager", "admin", "superuser"))])
 
 
 @router.post("")
