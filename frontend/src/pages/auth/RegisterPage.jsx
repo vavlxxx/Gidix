@@ -32,7 +32,7 @@ export function RegisterPage() {
     <main className="auth-page">
       <section className="auth-card">
         <span className="eyebrow">Регистрация</span>
-        <h1>Клиентский аккаунт</h1>
+        <h1>Создание аккаунта</h1>
         <p>Аккаунт пригодится для повторных заявок и просмотра статуса записи.</p>
         <form className="stack" onSubmit={submit}>
           <FormField label="Имя"><input autoComplete="given-name" value={form.first_name} onChange={(event) => setForm({ ...form, first_name: event.target.value })} /></FormField>
