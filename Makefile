@@ -8,12 +8,12 @@ help:
 	@echo "make up-osrm         - start project with local OSRM container"
 	@echo "make down            - stop containers"
 	@echo "make migrate         - run Alembic migrations"
-	@echo "make seed            - seed roles, users, points and demo excursion"
+	@echo "make seed            - seed roles, users, points and sample excursion"
 	@echo "make test            - run backend tests in backend container"
 	@echo "make smoke           - run smoke_check.py against local API"
 
 env:
-	@if [ ! -f .env ]; then cp .env.example .env; fi
+	@powershell -NoProfile -Command "if (!(Test-Path .env)) { Copy-Item .env.example .env }"
 
 up: env
 	$(COMPOSE) up --build

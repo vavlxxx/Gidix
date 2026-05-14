@@ -5,7 +5,7 @@ export function PlaceholderAdminPage({ title, description }) {
   return (
     <div>
       <PageHeader eyebrow="Раздел АИС" title={title} description={description} />
-      <EmptyState title="Раздел подготовлен для расширения" text="В демонстрационной версии здесь показана структура рабочего кабинета. Подключение детальной логики можно выполнить следующим этапом." />
+      <EmptyState title="Раздел в работе" text="Здесь будет доступна детализация рабочего процесса и связанные операции сотрудников." />
     </div>
   );
 }

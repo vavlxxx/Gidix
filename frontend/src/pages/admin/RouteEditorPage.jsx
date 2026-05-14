@@ -33,6 +33,8 @@ export function RouteEditorPage({ mode = "create" }) {
   const [error, setError] = React.useState("");
   const [geometryDirty, setGeometryDirty] = React.useState(false);
   const [manualGeometry, setManualGeometry] = React.useState(false);
+  const osrmHealth = state.health.find((item) => item.name === "osrm");
+  const routeGenerationEnabled = osrmHealth ? osrmHealth.enabled : true;
 
   React.useEffect(() => {
     if (mode !== "edit" || !id) {
@@ -183,7 +185,7 @@ export function RouteEditorPage({ mode = "create" }) {
     try {
       let nextGeometry = geometry;
       let nextEstimated = estimated;
-      if (!nextGeometry || geometryDirty) {
+      if (routeGenerationEnabled && (!nextGeometry || geometryDirty)) {
         const preview = await buildPlan();
         if (!preview?.geometry_geojson) return;
         nextGeometry = preview.geometry_geojson;
@@ -203,7 +205,7 @@ export function RouteEditorPage({ mode = "create" }) {
           cover_image_url: form.cover_image_url || media[0] || null,
           media_urls: media,
           geometry_format: "geojson",
-          geometry_source: manualGeometry ? "custom" : "road",
+          geometry_source: routeGenerationEnabled ? (manualGeometry ? "custom" : "road") : "manual",
           manual_geometry_edited: manualGeometry
         },
         points: selected.map((point_id, index) => ({ point_id, position: index + 1 }))
@@ -249,6 +251,7 @@ export function RouteEditorPage({ mode = "create" }) {
         loading={building}
         savingGeometry={savingGeometry}
         needsRebuild={geometryDirty}
+        routeGenerationEnabled={routeGenerationEnabled}
       />
       <section className="route-editor panel">
         <form className="stack" onSubmit={save}>
@@ -270,7 +273,7 @@ export function RouteEditorPage({ mode = "create" }) {
           />
           <div className="actions-row">
             <Button type="submit" tone="primary" disabled={saving || building || selected.length < 2}><Save size={17} /> {saving ? "Сохраняем..." : "Сохранить маршрут"}</Button>
-            <span className="inline-hint">{geometryDirty ? "Постройте план экскурсии после изменения точек" : geometry ? `Путь: ${km(estimated.estimated_length_km)} · ${minutes(estimated.estimated_duration_min)}` : "Выберите минимум две точки"}</span>
+            <span className="inline-hint">{!routeGenerationEnabled ? "Автоматический расчёт маршрута отключён, порядок точек задаётся вручную" : geometryDirty ? "Постройте план экскурсии после изменения точек" : geometry ? `Путь: ${km(estimated.estimated_length_km)} · ${minutes(estimated.estimated_duration_min)}` : "Выберите минимум две точки"}</span>
             {building && <span className="inline-loader"><Sparkles className="spin" size={17} /> Строим план экскурсии...</span>}
           </div>
         </form>

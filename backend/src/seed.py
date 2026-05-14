@@ -20,6 +20,7 @@ USERS = [
     ("dispatcher@example.com", "dispatcher123", "dispatcher"),
     ("accountant@example.com", "accountant123", "accountant"),
     ("guide@example.com", "guide123", "guide"),
+    ("it@example.com", "it123456", "it_specialist"),
     ("superuser@example.com", "superuser123", "superuser"),
 ]
 
@@ -58,6 +59,12 @@ async def seed_users(db: DBManager) -> None:
             db.session.add(user)
             await db.session.flush()
         await ensure_user_role(db, user, role_name)
+    guide_result = await db.session.execute(select(User).where(User.email == "guide@example.com"))
+    guide = guide_result.scalar_one_or_none()
+    if guide is not None:
+        sessions_result = await db.session.execute(select(GuideSession).where(GuideSession.guide_id.is_(None)))
+        for session in sessions_result.scalars().all():
+            session.guide_id = guide.id
     await db.commit()
 
 
@@ -81,7 +88,7 @@ async def seed_points_and_excursion(db: DBManager) -> None:
             await db.session.flush()
         categories[category_name] = category
 
-    demo_points: list[PointOfInterest] = []
+    route_points: list[PointOfInterest] = []
     for name, category_name, lon, lat in point_rows:
         result = await db.session.execute(select(PointOfInterest).where(PointOfInterest.name == name))
         point = result.scalar_one_or_none()
@@ -107,7 +114,7 @@ async def seed_points_and_excursion(db: DBManager) -> None:
             point.image_url = point.image_url or "https://placehold.co/600x400/EEE/31343C"
             point.source = point.source or "seed"
         if category_name != OSRM_CATEGORY:
-            demo_points.append(point)
+            route_points.append(point)
 
     result = await db.session.execute(select(Route).where(Route.title == "Прогулка по центру Уфы"))
     route = result.scalar_one_or_none()
@@ -115,15 +122,15 @@ async def seed_points_and_excursion(db: DBManager) -> None:
         route = Route(
             title="Прогулка по центру Уфы",
             description="Базовый маршрут по популярным точкам Уфы.",
-            start_point_id=demo_points[0].id,
-            finish_point_id=demo_points[-1].id,
+            start_point_id=route_points[0].id,
+            finish_point_id=route_points[-1].id,
             estimated_duration_min=120,
             estimated_length_km=Decimal("4.50"),
             formation_type="seed",
         )
         db.session.add(route)
         await db.session.flush()
-        for position, point in enumerate(demo_points, 1):
+        for position, point in enumerate(route_points, 1):
             db.session.add(RoutePoint(route_id=route.id, point_id=point.id, position=position, visit_duration_min=20))
 
     result = await db.session.execute(select(Excursion).where(Excursion.title == "Уфа: первые истории"))
@@ -141,7 +148,9 @@ async def seed_points_and_excursion(db: DBManager) -> None:
         )
         db.session.add(excursion)
         await db.session.flush()
-        db.session.add(GuideSession(excursion_id=excursion.id, session_date=date.today(), start_time=time(12, 0), capacity=20))
+        guide_result = await db.session.execute(select(User).where(User.email == "guide@example.com"))
+        guide = guide_result.scalar_one_or_none()
+        db.session.add(GuideSession(excursion_id=excursion.id, guide_id=guide.id if guide else None, session_date=date.today(), start_time=time(12, 0), capacity=20))
 
     await db.commit()
 

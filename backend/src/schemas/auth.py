@@ -77,6 +77,19 @@ class RoleDTO(BaseDTO):
     description: str | None = None
 
 
+class UserCreateDTO(BaseDTO):
+    email: EmailStr
+    username: str | None = Field(None, min_length=4, max_length=64)
+    password: str = Field(..., min_length=8)
+    first_name: str | None = Field(None, max_length=100)
+    last_name: str | None = Field(None, max_length=100)
+    middle_name: str | None = Field(None, max_length=100)
+    full_name: str | None = Field(None, max_length=255)
+    phone: str | None = Field(None, max_length=50)
+    active: bool = True
+    roles: list[RoleName] = Field(default_factory=lambda: [RoleName.CLIENT])
+
+
 class UserDTO(BaseDTO):
     id: int
     email: EmailStr
@@ -117,6 +130,25 @@ class UserUpdateDTO(BaseDTO):
         if not any(value is not None and value != "" for value in data.values()):
             raise ValueError("Provide at least one field for update")
         return data
+
+
+class AdminUserUpdateDTO(BaseDTO):
+    email: EmailStr | None = None
+    username: str | None = Field(None, min_length=4, max_length=64)
+    first_name: str | None = Field(None, max_length=100)
+    last_name: str | None = Field(None, max_length=100)
+    middle_name: str | None = Field(None, max_length=100)
+    full_name: str | None = Field(None, max_length=255)
+    phone: str | None = Field(None, max_length=50)
+    active: bool | None = None
+
+
+class UserRolesUpdateDTO(BaseDTO):
+    roles: list[RoleName] = Field(..., min_length=1)
+
+
+class UserPasswordUpdateDTO(BaseDTO):
+    password: str = Field(..., min_length=8)
 
 
 class UserWithPasswordDTO(UserDTO):

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { CalendarDays, Compass, CreditCard, Gauge, LogIn, LogOut, MapPin, Menu, MessageSquare, Route, UserRound, X } from "lucide-react";
+import { CalendarDays, Compass, CreditCard, Gauge, Landmark, LogIn, LogOut, MapPin, Menu, MessageSquare, Route, ShieldCheck, Sparkles, Ticket, UserRound, Users, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { roleTitle, userHasRole } from "../utils/format";
@@ -12,11 +12,16 @@ const publicItems = [
 
 const staffItems = [
   { to: "/admin", label: "Обзор", icon: Gauge, roles: ["admin", "superuser", "manager", "dispatcher", "guide", "accountant", "it_specialist"], end: true },
-  { to: "/admin/bookings", label: "Заявки", icon: CreditCard, roles: ["admin", "superuser", "manager", "dispatcher", "accountant"] },
-  { to: "/admin/sessions", label: "Календарь", icon: CalendarDays, roles: ["admin", "superuser", "manager", "guide"] },
+  { to: "/admin/users", label: "Пользователи", icon: Users, roles: ["admin", "superuser", "it_specialist"] },
+  { to: "/admin/bookings", label: "Заявки", icon: Ticket, roles: ["admin", "superuser", "manager", "dispatcher"] },
+  { to: "/admin/payments", label: "Оплата", icon: CreditCard, roles: ["admin", "superuser", "accountant"] },
+  { to: "/admin/excursions", label: "Экскурсии", icon: Landmark, roles: ["admin", "superuser", "manager"] },
   { to: "/admin/routes", label: "Маршруты", icon: Route, roles: ["admin", "superuser", "manager", "it_specialist"] },
   { to: "/admin/points", label: "Точки", icon: MapPin, roles: ["admin", "superuser", "manager", "it_specialist"] },
-  { to: "/admin/reviews", label: "Отзывы", icon: MessageSquare, roles: ["admin", "superuser", "manager"] }
+  { to: "/admin/sessions", label: "Сеансы", icon: CalendarDays, roles: ["admin", "superuser", "manager"] },
+  { to: "/admin/reviews", label: "Отзывы", icon: MessageSquare, roles: ["admin", "superuser", "manager"] },
+  { to: "/admin/my-sessions", label: "Маршрутные задания", icon: ShieldCheck, roles: ["guide"] },
+  { to: "/admin/integrations", label: "Интеграции", icon: Sparkles, roles: ["admin", "superuser", "it_specialist"] }
 ];
 
 export function PublicLayout() {

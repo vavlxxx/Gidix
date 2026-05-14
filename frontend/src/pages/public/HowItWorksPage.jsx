@@ -16,9 +16,9 @@ export function HowItWorksPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Демонстрация АИС"
+        eyebrow="Процесс работы"
         title="Как работает система управления экскурсиями"
-        description="Страница показывает полный контур дипломной системы: от клиентской заявки до проведения экскурсии и фиксации результата."
+        description="Полный контур работы: от клиентской заявки до проведения экскурсии и фиксации результата."
       />
       <section className="workflow-steps">
         {steps.map(([title, text], index) => (

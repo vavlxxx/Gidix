@@ -9,11 +9,16 @@ import { RegisterPage } from "../pages/auth/RegisterPage";
 import { AdminDashboardPage } from "../pages/admin/AdminDashboardPage";
 import { BookingsPage } from "../pages/admin/BookingsPage";
 import { SessionsPage } from "../pages/admin/SessionsPage";
+import { UsersPage } from "../pages/admin/UsersPage";
+import { PaymentsPage } from "../pages/admin/PaymentsPage";
+import { GuideAssignmentsPage } from "../pages/admin/GuideAssignmentsPage";
+import { ExcursionsPage } from "../pages/admin/ExcursionsPage";
 import { ExcursionEditorPage } from "../pages/admin/ExcursionEditorPage";
 import { RoutesPage } from "../pages/admin/RoutesPage";
 import { RouteEditorPage } from "../pages/admin/RouteEditorPage";
 import { PointsPage } from "../pages/admin/PointsPage";
 import { ReviewsPage } from "../pages/admin/ReviewsPage";
+import { IntegrationsPage } from "../pages/admin/IntegrationsPage";
 
 export const router = createBrowserRouter([
   {
@@ -34,9 +39,13 @@ export const router = createBrowserRouter([
         element: <AdminLayout />,
         children: [
           { index: true, element: <AdminDashboardPage /> },
+          { path: "users", element: <UsersPage /> },
           { path: "bookings", element: <BookingsPage /> },
+          { path: "payments", element: <PaymentsPage /> },
+          { path: "my-sessions", element: <GuideAssignmentsPage /> },
+          { path: "guide", element: <GuideAssignmentsPage /> },
           { path: "sessions", element: <SessionsPage /> },
-          { path: "excursions", element: <Navigate to="/" replace /> },
+          { path: "excursions", element: <ExcursionsPage /> },
           { path: "excursions/new", element: <ExcursionEditorPage /> },
           { path: "excursions/:id/edit", element: <ExcursionEditorPage /> },
           { path: "routes", element: <RoutesPage /> },
@@ -44,7 +53,7 @@ export const router = createBrowserRouter([
           { path: "routes/:id/edit", element: <RouteEditorPage mode="edit" /> },
           { path: "points", element: <PointsPage /> },
           { path: "reviews", element: <ReviewsPage /> },
-          { path: "integrations", element: <Navigate to="/admin/routes" replace /> },
+          { path: "integrations", element: <IntegrationsPage /> },
           { path: "settings", element: <Navigate to="/admin" replace /> }
         ]
       }

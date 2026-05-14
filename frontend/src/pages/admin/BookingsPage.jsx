@@ -61,13 +61,14 @@ export function BookingsPage() {
 
   return (
     <div className="bookings-workspace">
-      <PageHeader eyebrow="Заявки" title="Рабочий инструмент диспетчера и менеджера" description="Фильтруйте обращения, открывайте карточку заявки и фиксируйте следующий шаг согласования." />
+      <PageHeader eyebrow="Заявки" title="Заявки пользователей" description="Фильтруйте обращения, открывайте карточку заявки и фиксируйте следующий шаг согласования." />
       <section className="filters-panel">
         <label className="search-field"><Search size={17} /><input placeholder="Клиент, телефон или email" value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} /></label>
         <select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })} aria-label="Статус заявки">
           <option value="all">Все заявки</option>
           <option value="pending">Новые</option>
           <option value="checking">Проверяется</option>
+          <option value="needs_clarification">Требует уточнения</option>
           <option value="confirmed">Подтверждена</option>
           <option value="completed">Проведена</option>
           <option value="cancelled">Отменена</option>
@@ -75,6 +76,7 @@ export function BookingsPage() {
         <select value={filters.payment} onChange={(event) => setFilters({ ...filters, payment: event.target.value })} aria-label="Статус оплаты">
           <option value="all">Любая оплата</option>
           <option value="pending">Ожидает оплаты</option>
+          <option value="invoice_sent">Счёт выставлен</option>
           <option value="paid">Оплачено</option>
           <option value="failed">Ошибка оплаты</option>
         </select>
@@ -99,9 +101,13 @@ export function BookingsPage() {
               <div><dt>Участники</dt><dd>{selected.participants_count}</dd></div>
               <div><dt>Комментарий</dt><dd>{selected.comment || "—"}</dd></div>
             </dl>
+            <FormField label="Внутренний комментарий">
+              <textarea placeholder="Заметка диспетчера для уточнения деталей заявки." />
+            </FormField>
             <div className="drawer-actions">
-              <Button type="button" tone="primary" onClick={() => update(selected, { status: "confirmed" }, "Заявка подтверждена.")}><CheckCircle2 size={17} /> Подтвердить</Button>
-              <Button type="button" tone="neutral" onClick={() => update(selected, { status: "checking" })}><UserCheck size={17} /> Проверяется</Button>
+              <Button type="button" tone="neutral" onClick={() => update(selected, { status: "checking" }, "Заявка взята в проверку.")}><UserCheck size={17} /> Взять в проверку</Button>
+              <Button type="button" tone="primary" onClick={() => update(selected, { status: "confirmed" }, "Заявка подтверждена.")}><CheckCircle2 size={17} /> Подтвердить заявку</Button>
+              <Button type="button" tone="neutral" onClick={() => update(selected, { status: "needs_clarification" }, "Заявке требуется уточнение.")}><UserCheck size={17} /> Требует уточнения</Button>
               <Button type="button" tone="neutral" onClick={() => update(selected, { payment_status: "paid" }, "Оплата подтверждена.")}><CreditCard size={17} /> Оплачено</Button>
               <Button type="button" tone="neutral" onClick={() => update(selected, { status: "completed" }, "Экскурсия отмечена проведённой.")}><CalendarCheck size={17} /> Проведена</Button>
               <Button type="button" tone="danger" onClick={() => update(selected, { status: "cancelled" })}><XCircle size={17} /> Отменить</Button>

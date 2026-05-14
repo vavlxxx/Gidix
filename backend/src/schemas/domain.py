@@ -313,6 +313,16 @@ class BookingRead(BaseDTO):
     message: str | None = None
 
 
+class GuideSessionExcursionRead(ExcursionCreate):
+    id: int
+    route: RouteRead | None = None
+
+
+class GuideSessionAssignmentRead(GuideSessionRead):
+    excursion: GuideSessionExcursionRead | None = None
+    bookings: list[BookingRead] = []
+
+
 class ReviewCreate(BaseDTO):
     excursion_id: int
     rating: int = Field(..., ge=1, le=5)
@@ -354,3 +364,5 @@ class IntegrationHealth(BaseDTO):
     enabled: bool
     ok: bool
     detail: str | None = None
+    url: str | None = None
+    model: str | None = None

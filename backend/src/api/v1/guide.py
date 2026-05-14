@@ -6,10 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from src.api.v1.dependencies.auth import require_any_role
+from src.api.v1.dependencies.auth import CurrentUser, require_any_role
 from src.api.v1.dependencies.db import DBDep
-from src.models.domain import GuideSession
-from src.schemas.domain import GuideSessionCreate, GuideSessionRead, GuideSessionUpdate
+from src.models.domain import Booking, Excursion, GuideSession, Route, RoutePoint
+from src.schemas.domain import GuideSessionAssignmentRead, GuideSessionCreate, GuideSessionRead, GuideSessionUpdate
 
 router = APIRouter(prefix="/guide", tags=["guide"])
 guide_dep = Depends(require_any_role("guide", "dispatcher", "manager", "admin", "superuser"))
@@ -25,6 +25,29 @@ async def list_sessions(db: DBDep) -> list[GuideSession]:
     sessions = list(result.scalars().all())
     for session in sessions:
         _attach_available_places(session)
+    return sessions
+
+
+@router.get("/my-sessions", response_model=list[GuideSessionAssignmentRead])
+async def list_my_sessions(db: DBDep, user: CurrentUser) -> list[GuideSession]:
+    if not {"guide", "manager", "admin", "superuser"}.intersection(user.role_names):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    query = (
+        select(GuideSession)
+        .options(
+            selectinload(GuideSession.bookings).selectinload(Booking.excursion),
+            selectinload(GuideSession.excursion).selectinload(Excursion.route).selectinload(Route.points).selectinload(RoutePoint.point),
+        )
+        .order_by(GuideSession.session_date, GuideSession.start_time)
+    )
+    if "guide" in user.role_names and not {"manager", "admin", "superuser"}.intersection(user.role_names):
+        query = query.where(GuideSession.guide_id == user.id)
+    result = await db.session.execute(query)
+    sessions = list(result.scalars().unique().all())
+    for session in sessions:
+        _attach_available_places(session)
+        for booking in session.bookings:
+            _attach_booking_view_fields(booking, session)
     return sessions
 
 
@@ -106,6 +129,14 @@ def _attach_available_places(session: GuideSession) -> None:
         if booking.status not in {"cancelled", "rejected"}
     )
     session.available_places = max(session.capacity - booked, 0)
+
+
+def _attach_booking_view_fields(booking: Booking, session: GuideSession) -> None:
+    booking.excursion_title = booking.excursion.title if booking.excursion else None
+    booking.session_date = session.session_date
+    booking.start_time = session.start_time
+    if booking.customer_email == "":
+        booking.customer_email = None
 
 
 async def _ensure_unique_session(db: DBDep, excursion_id, session_date, start_time, exclude_id: int | None = None) -> None:

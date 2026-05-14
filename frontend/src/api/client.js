@@ -160,6 +160,16 @@ export const bookingsApi = {
   pay: (id) => api(`/bookings/${id}/mock-payment`, { method: "POST" })
 };
 
+export const usersApi = {
+  list: () => api("/users"),
+  get: (id) => api(`/users/${id}`),
+  create: (data) => api("/users", { method: "POST", body: JSON.stringify(data) }),
+  update: (id, data) => api(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  updateRoles: (id, roles) => api(`/users/${id}/roles`, { method: "PUT", body: JSON.stringify({ roles }) }),
+  updatePassword: (id, password) => api(`/users/${id}/password`, { method: "PUT", body: JSON.stringify({ password }) }),
+  roles: () => api("/users/roles")
+};
+
 export const reviewsApi = {
   list: (excursionId) => api(`/reviews${excursionId ? `?excursion_id=${excursionId}` : ""}`),
   moderation: () => api("/reviews/moderation"),
@@ -189,6 +199,7 @@ export const adminApi = {
   updateExcursion: (id, data) => api(`/excursions/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteExcursion: (id) => api(`/excursions/${id}`, { method: "DELETE" }),
   sessions: () => api("/guide/sessions"),
+  mySessions: () => api("/guide/my-sessions"),
   excursionSessions: (id) => api(`/guide/excursions/${id}/sessions`),
   createSession: (data) => api("/guide/sessions", { method: "POST", body: JSON.stringify(data) }),
   updateSession: (id, data) => api(`/guide/sessions/${id}`, { method: "PUT", body: JSON.stringify(data) }),

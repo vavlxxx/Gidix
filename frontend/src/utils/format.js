@@ -96,6 +96,7 @@ export function statusTitle(status) {
   return ({
     pending: "Новая",
     checking: "Проверяется",
+    needs_clarification: "Требует уточнения",
     confirmed: "Подтверждена",
     awaiting_payment: "Ожидает оплаты",
     paid: "Оплачена",
@@ -110,6 +111,7 @@ export function statusTitle(status) {
 export function paymentTitle(status) {
   return ({
     pending: "Ожидает оплаты",
+    invoice_sent: "Счёт выставлен",
     paid: "Оплачено",
     failed: "Ошибка оплаты",
     refunded: "Возврат"
@@ -120,7 +122,7 @@ export function roleTitle(role) {
   return ({
     client: "Клиент",
     admin: "Администратор",
-    superuser: "Администратор",
+    superuser: "Суперпользователь",
     manager: "Менеджер",
     dispatcher: "Диспетчер",
     guide: "Экскурсовод",

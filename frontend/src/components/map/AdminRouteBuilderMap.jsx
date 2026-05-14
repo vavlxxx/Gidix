@@ -22,6 +22,7 @@ export function AdminRouteBuilderMap({
   loading = false,
   savingGeometry = false,
   needsRebuild = false,
+  routeGenerationEnabled = true,
 }) {
   const selectedPoints = selectedIds.map((id) => points.find((point) => point.id === id)).filter(Boolean);
   const selectedPositions = selectedPoints.map(pointPosition).filter(Boolean);
@@ -134,9 +135,10 @@ export function AdminRouteBuilderMap({
         {loading && <div className="map-loading"><span className="loader-orbit loader-orbit--large" /> <span>Строим план экскурсии, подождите...</span></div>}
       </div>
       <div className="map-toolbar">
-        <Button type="button" tone="primary" onClick={onBuildPlan} disabled={loading || selectedIds.length < 2}>
+        <Button type="button" tone="primary" onClick={onBuildPlan} disabled={loading || selectedIds.length < 2 || !routeGenerationEnabled}>
           <Plus size={17} /> Построить план экскурсии
         </Button>
+        {!routeGenerationEnabled && <span className="inline-hint">Автоматический расчёт маршрута отключён, порядок точек задаётся вручную</span>}
         {!editing ? (
           <Button type="button" tone="neutral" onClick={startEditing} disabled={plannedLine.length < 2 || loading}>
             <Pencil size={17} /> Редактировать линию

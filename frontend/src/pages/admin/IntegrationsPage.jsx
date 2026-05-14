@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles, Wand2 } from "lucide-react";
+import { RefreshCcw, Sparkles, Wand2 } from "lucide-react";
 import { adminApi, excursionsApi } from "../../api/client";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
@@ -28,13 +28,19 @@ export function IntegrationsPage() {
 
   return (
     <div>
-      <PageHeader eyebrow="Интеграции" title="Маршрутизация, описания и импорт" description="Инструменты вынесены отдельно, чтобы рабочие сценарии заявок и маршрутов не смешивались с сервисной интеграцией." />
+      <PageHeader
+        eyebrow="IT-специалист"
+        title="Состояние интеграций"
+        description="Проверка подключений OSRM, LLM, поиска фактов и импорта OSM."
+        actions={<Button type="button" tone="neutral" onClick={refresh}><RefreshCcw size={17} /> Проверить</Button>}
+      />
       {loading && <LoadingState text="Проверка интеграций" />}
       <section className="admin-columns">
         <DataTable columns={[
-          { key: "name", title: "Сервис" },
-          { key: "enabled", title: "Включён", render: (row) => row.enabled ? "да" : "нет" },
-          { key: "detail", title: "Адрес / состояние" }
+          { key: "name", title: "Сервис", render: (row) => serviceTitle(row.name) },
+          { key: "enabled", title: "Статус", render: (row) => row.enabled ? "включён" : "выключен" },
+          { key: "detail", title: "Адрес / состояние", render: (row) => <><strong>{row.detail || "—"}</strong><br /><span className="muted-text">{row.url || row.model || "локальная настройка"}</span></> },
+          { key: "action", title: "Проверка", render: () => <Button type="button" tone="neutral" onClick={refresh}><RefreshCcw size={15} /> Проверить</Button> }
         ]} rows={state.health} emptyText="Нет данных о сервисах" />
         <section className="panel stack">
           <h2><Sparkles size={18} /> Генерация описаний</h2>
@@ -45,4 +51,15 @@ export function IntegrationsPage() {
       </section>
     </div>
   );
+}
+
+function serviceTitle(name) {
+  return ({
+    osrm: "OSRM",
+    llm: "LLM",
+    ollama: "LLM",
+    fact_search: "Поиск фактов",
+    osm_import: "Импорт OSM",
+    overpass: "Overpass"
+  })[name] || name;
 }

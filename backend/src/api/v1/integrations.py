@@ -19,9 +19,34 @@ staff_dep = Depends(require_any_role("it_specialist", "manager", "admin", "super
 @router.get("/health", response_model=list[IntegrationHealth], dependencies=[staff_dep])
 async def integration_health() -> list[IntegrationHealth]:
     return [
-        IntegrationHealth(name="osrm", enabled=settings.enable_route_generation, ok=True, detail=settings.osrm_base_url),
-        IntegrationHealth(name="ollama", enabled=settings.enable_llm_description, ok=True, detail=settings.ollama_base_url),
-        IntegrationHealth(name="overpass", enabled=settings.enable_osm_import, ok=True, detail=settings.overpass_url),
+        IntegrationHealth(
+            name="osrm",
+            enabled=settings.enable_route_generation,
+            ok=True,
+            detail="Маршрутизация включена" if settings.enable_route_generation else "Автоматический расчёт маршрута отключён",
+            url=settings.osrm_base_url,
+        ),
+        IntegrationHealth(
+            name="llm",
+            enabled=settings.enable_llm_description,
+            ok=True,
+            detail="Генерация описаний включена" if settings.enable_llm_description else "Генерация описаний отключена",
+            url=settings.ollama_base_url,
+            model=settings.ollama_model,
+        ),
+        IntegrationHealth(
+            name="fact_search",
+            enabled=settings.enable_web_fact_search,
+            ok=True,
+            detail="Поиск фактов включён" if settings.enable_web_fact_search else "Поиск фактов отключён",
+        ),
+        IntegrationHealth(
+            name="osm_import",
+            enabled=settings.enable_osm_import,
+            ok=True,
+            detail="Импорт точек OSM включён" if settings.enable_osm_import else "Импорт точек OSM отключён",
+            url=settings.overpass_url,
+        ),
     ]
 
 

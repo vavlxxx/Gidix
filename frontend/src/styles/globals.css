@@ -584,6 +584,150 @@ dd { margin: 4px 0 0; font-weight: 900; }
 .status-pill--cancelled,
 .status-pill--failed { background: #f7e7e7; color: var(--danger); }
 
+.status-pill--invoice_sent,
+.status-pill--needs_clarification { background: #fff4d8; color: #8a5a0a; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.badge--success { background: #e4f3eb; color: var(--success); }
+.badge--danger { background: #f7e7e7; color: var(--danger); }
+.role-badges,
+.roles-checklist {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.roles-checklist {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.roles-checklist label,
+.switch-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.roles-checklist input,
+.switch-line input {
+  width: auto;
+}
+
+.muted-text,
+.inline-hint {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.payment-grid,
+.guide-session-list {
+  display: grid;
+  gap: 14px;
+}
+
+.payment-card,
+.guide-session-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  box-shadow: var(--shadow-soft);
+}
+
+.payment-card__head,
+.guide-session-card__summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.payment-card__head span,
+.guide-session-card__summary p {
+  display: block;
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.details-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.details-list > div {
+  padding: 12px;
+  background: var(--surface-muted);
+  border-radius: 8px;
+}
+
+.guide-session-card h2 {
+  margin: 6px 0 0;
+}
+
+.guide-session-card__facts {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  min-width: 180px;
+}
+
+.guide-session-card__facts span {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.guide-mini-map {
+  height: 320px;
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.guide-map {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+}
+
+.guide-task-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.participant-row {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  background: var(--surface-muted);
+  border-radius: 8px;
+}
+
 .drawer {
   position: fixed;
   inset: 0 0 0 auto;
@@ -2902,8 +3046,19 @@ input[readonly] {
 
   .profile-layout,
   .profile-history,
-  .review-form {
+  .review-form,
+  .details-list,
+  .guide-task-grid {
     grid-template-columns: 1fr;
+  }
+
+  .payment-card__head,
+  .guide-session-card__summary {
+    flex-direction: column;
+  }
+
+  .guide-session-card__facts {
+    justify-items: start;
   }
 
   .reviews-summary {

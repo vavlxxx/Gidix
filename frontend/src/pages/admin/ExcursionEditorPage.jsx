@@ -66,6 +66,8 @@ export function ExcursionEditorPage() {
   }, [id]);
 
   const selectedRoute = state.routes.find((route) => String(route.id) === String(form.route_id));
+  const llmHealth = state.health.find((item) => item.name === "llm" || item.name === "ollama");
+  const llmEnabled = llmHealth ? llmHealth.enabled : true;
   const routeDuration = selectedRoute?.estimated_duration_min || null;
   const previewImages = form.media_urls?.length ? form.media_urls : [form.image_url].filter(Boolean);
   const cover = form.image_url || previewImages[0] || coverForExcursion({ ...form, route: selectedRoute });
@@ -163,7 +165,8 @@ export function ExcursionEditorPage() {
             </div>
           </FormField>
           <div className="actions-row">
-            <Button type="button" tone="neutral" onClick={generateDescription} disabled={generating}><Sparkles size={17} /> {generating ? "Генерируем..." : "Сгенерировать описание"}</Button>
+            <Button type="button" tone="neutral" onClick={generateDescription} disabled={generating || !llmEnabled}><Sparkles size={17} /> {generating ? "Генерируем..." : "Сгенерировать описание"}</Button>
+            {!llmEnabled && <span className="inline-hint">Генерация описания отключена</span>}
           </div>
           <div className="form-grid">
             <FormField label="Цена ₽/чел" required><input type="number" min="0" value={form.base_price} onChange={(event) => setForm({ ...form, base_price: event.target.value })} required /></FormField>
